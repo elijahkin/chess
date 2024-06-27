@@ -48,6 +48,7 @@ struct Piece {
       stream << "\u2659";
       break;
     }
+    // TODO use format with c++2a
     // stream << std::format("\u{:x}", 9812 + piece.type);
     stream << kResetText;
     return stream;
@@ -56,9 +57,11 @@ struct Piece {
 
 class Board {
 private:
+  // TODO switch to std::array
   std::vector<int8_t> squares_;
   std::vector<Piece> pieces_;
   Color colorToMove_;
+  std::vector<std::string> history_;
 
 public:
   // Set up the board with the pieces in their starting positions
@@ -81,6 +84,7 @@ public:
 
   friend std::ostream &operator<<(std::ostream &stream, const Board &board) {
     stream << '\n';
+    // Print the board with rank labels on the left
     for (int8_t rank = 0; rank < 8; ++rank) {
       stream << static_cast<int>(8 - rank) << ' ';
       for (int8_t file = 0; file < 8; ++file) {
@@ -96,10 +100,17 @@ public:
       }
       stream << kResetBackground << '\n';
     }
+    // Print file labels
     stream << "  ";
     for (char file = 'a'; file <= 'h'; ++file) {
       stream << ' ' << file << ' ';
     }
+    // Finally, print out the move history
+    stream << '\n' << std::endl;
+    for (size_t i = 0; i < board.history_.size(); ++i) {
+      stream << (i + 1) << ". " << board.history_[i] << ' ';
+    }
+    stream << '\n';
     return stream;
   }
 
@@ -115,9 +126,11 @@ public:
 
   // https://en.wikipedia.org/wiki/Algebraic_notation_(chess)
   // K for king, Q for queen, R for rook, B for bishop, and N for knight
-  Move ParseAlgebraicNotation(std::string move) {
+  Move ParseAlgebraicNotation(const std::string move) {
     // TODO do stripping if contains and x for capture or e.p. for en passant.
     // Also handle special case of castling
+    assert('a' <= move[1] && move[1] <= 'h');
+    assert('1' <= move[2] && move[2] <= '8');
 
     PieceType piece_type;
     switch (move[0]) {
@@ -153,6 +166,7 @@ public:
     const int8_t from = candidates[0];
     const int8_t to = (move[1] - 'a') + 8 * ('8' - move[2]);
 
+    history_.push_back(move);
     return {from, to};
   }
 
@@ -210,26 +224,16 @@ public:
 
 int main() {
   Board board;
-  std::vector<std::string> history;
   std::string input;
   while (true) {
-    // Clear the screen
-    // TODO possibly move this into print
+    // Clear the screen and print out the board with history
     system("clear");
-
-    // Print out the board and the history
-    // TODO move this into board print
-    std::cout << board << "\n" << std::endl;
-    for (int8_t move_number = 0; move_number < history.size(); ++move_number) {
-      std::cout << (move_number + 1) << ". " << history[move_number] << " ";
-    }
-    std::cout << "\n" << std::endl;
+    std::cout << board << std::endl;
 
     // Get use input for the move
     // TODO overload >> instead of having a function
     std::cout << "Please enter a move: ";
     std::cin >> input;
-    history.push_back(input);
     Board::Move move = board.ParseAlgebraicNotation(input);
 
     board.MakeMove(move.from, move.to);
