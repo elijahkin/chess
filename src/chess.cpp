@@ -1,4 +1,4 @@
-#include <array>
+// #include <array>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -57,13 +57,15 @@ struct Piece {
 
 class Chess {
 private:
-  std::array<Piece, 64> board_;
+  std::vector<Piece> board_;
+  // std::array<Piece, 64> board_;
   Color colorToMove_;
   std::vector<std::string> history_;
 
 public:
   // Set up the board with the pieces in their starting positions
   Chess() {
+    board_.resize(64);
     const std::vector<Type> major_rank = {kRook,  kKnight, kBishop, kKing,
                                           kQueen, kBishop, kKnight, kRook};
     for (Square i = 0; i < 8; ++i) {
