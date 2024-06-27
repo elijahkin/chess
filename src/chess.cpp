@@ -1,3 +1,4 @@
+#include <array>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -13,27 +14,21 @@ const std::string kResetBackground = "\33[49m";
 
 enum Color : int8_t { kWhite, kBlack };
 
-enum PieceType : int8_t {
-  kNone,
-  kKing,
-  kQueen,
-  kRook,
-  kBishop,
-  kKnight,
-  kPawn
-};
+enum Type : int8_t { kNone, kKing, kQueen, kRook, kBishop, kKnight, kPawn };
 
 typedef int8_t Square;
 
 struct Piece {
   Color color;
-  PieceType type;
-  Square square;
+  Type type;
 
   // https://en.wikipedia.org/wiki/Chess_symbols_in_Unicode
   friend std::ostream &operator<<(std::ostream &stream, const Piece &piece) {
     stream << ((piece.color == kWhite) ? kWhiteText : kBlackText);
     switch (piece.type) {
+    case kNone:
+      stream << ' ';
+      break;
     case kKing:
       stream << "\u2654";
       break;
@@ -52,9 +47,6 @@ struct Piece {
     case kPawn:
       stream << "\u2659";
       break;
-    case kNone:
-      stream << " ";
-      break;
     }
     // TODO use format with c++2a
     // stream << std::format("\u{:x}", 9812 + piece.type);
@@ -65,18 +57,16 @@ struct Piece {
 
 class Chess {
 private:
-  // TODO switch to std::array
-  std::vector<Piece> board_;
+  std::array<Piece, 64> board_;
   Color colorToMove_;
   std::vector<std::string> history_;
 
 public:
   // Set up the board with the pieces in their starting positions
   Chess() {
-    board_.resize(64);
-    const std::vector<PieceType> major_rank = {kRook,  kKnight, kBishop, kKing,
-                                               kQueen, kBishop, kKnight, kRook};
-    for (int8_t i = 0; i < 8; ++i) {
+    const std::vector<Type> major_rank = {kRook,  kKnight, kBishop, kKing,
+                                          kQueen, kBishop, kKnight, kRook};
+    for (Square i = 0; i < 8; ++i) {
       CreatePiece(kBlack, major_rank[i], i);
       CreatePiece(kBlack, kPawn, i + 8);
       CreatePiece(kWhite, kPawn, i + 48);
@@ -93,9 +83,7 @@ public:
       stream << static_cast<int>(8 - rank) << ' ';
       for (int8_t file = 0; file < 8; ++file) {
         stream << ((rank + file) % 2 ? kBlackBackground : kWhiteBackground);
-        stream << ' ';
-        stream << game.board_[rank * 8 + file];
-        stream << ' ';
+        stream << ' ' << game.board_[rank * 8 + file] << ' ';
       }
       stream << kResetBackground << '\n';
     }
@@ -105,16 +93,15 @@ public:
       stream << ' ' << file << ' ';
     }
     // Finally, print out the move history
-    stream << '\n' << std::endl;
+    stream << "\n\n";
     for (size_t i = 0; i < game.history_.size(); ++i) {
       stream << (i + 1) << ". " << game.history_[i] << ' ';
     }
-    stream << '\n';
     return stream;
   }
 
-  void CreatePiece(Color color, PieceType type, int8_t square) {
-    board_[square] = {color, type, square};
+  void CreatePiece(Color color, Type type, Square square) {
+    board_[square] = {color, type};
   }
 
   struct Move {
@@ -130,78 +117,60 @@ public:
     assert('a' <= move[1] && move[1] <= 'h');
     assert('1' <= move[2] && move[2] <= '8');
 
-    PieceType piece_type;
+    Type type;
     switch (move[0]) {
     case 'K':
-      piece_type = kKing;
+      type = kKing;
       break;
     case 'Q':
-      piece_type = kQueen;
+      type = kQueen;
       break;
     case 'R':
-      piece_type = kRook;
+      type = kRook;
       break;
     case 'B':
-      piece_type = kBishop;
+      type = kBishop;
       break;
     case 'N':
-      piece_type = kKnight;
+      type = kKnight;
       break;
     default:
-      piece_type = kPawn;
+      type = kPawn;
       break;
     }
 
     std::vector<Square> candidates;
-    for (auto piece : board_) {
-      if (piece.type == piece_type && piece.color == colorToMove_) {
+    for (Square i = 0; i < board_.size(); ++i) {
+      if (board_[i].type == type && board_[i].color == colorToMove_) {
         // TODO Is it viable?
-        candidates.push_back(piece.square);
+        candidates.push_back(i);
       }
     }
 
     assert(candidates.size() == 1);
-    const int8_t from = candidates[0];
-    const int8_t to = (move[1] - 'a') + 8 * ('8' - move[2]);
+    const Square from = candidates[0];
+    const Square to = (move[1] - 'a') + 8 * ('8' - move[2]);
 
     history_.push_back(move);
     return {from, to};
   }
 
-  // TODO std::vector<Square> getRank() {}
-  // TODO std::vector<Square> getFile() {}
-  // TODO std::vector<Square> getDiagonal() {}
-  // TODO std::vector<Square> getAntiDiagonal() {}
-
   std::vector<Square> LegalMovesForPiece(Piece piece) {
     std::vector<Square> moves;
     switch (piece.type) {
+    case kNone:
+      break;
     case kKing:
       break;
     case kQueen:
       break;
     case kRook:
-      for (int i = 0; i < 8; ++i) {
-        Square square = 8 * (piece.square / 8) + i;
-        moves.push_back(square); // file
-        // if occupied, break
-      }
-      for (int i = 0; i < 8; ++i) {
-        moves.push_back(8 * i + (piece.square % 8)); // rank
-        // if occupied, break
-      }
       break;
     case kBishop:
       break;
     case kKnight:
       break;
     case kPawn:
-      moves.push_back(piece.square + 1);
-      moves.push_back(piece.square + 2); // TODO two jump
-      moves.push_back(piece.square - 7); // TODO attack left
-      moves.push_back(piece.square + 9); // TODO attack right
-      break;
-    case kNone:
       break;
     }
     return moves;
