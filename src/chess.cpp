@@ -1,16 +1,19 @@
 // #include <array>
+#include <cassert>
+#include <cstdint>
+#include <cstdlib>
+// #include <format>
 #include <iostream>
 #include <string>
 #include <vector>
-// #include <format>
 
 // Define color scheme via ANSI escape codes
-const std::string kWhiteText = "\33[37m";
-const std::string kBlackText = "\33[30m";
-const std::string kResetText = "\33[39m";
-const std::string kWhiteBackground = "\33[48;5;33m";
-const std::string kBlackBackground = "\33[48;5;20m";
-const std::string kResetBackground = "\33[49m";
+const char kWhiteText[] = "\33[37m";
+const char kBlackText[] = "\33[30m";
+const char kResetText[] = "\33[39m";
+const char kWhiteBackground[] = "\33[48;5;33m";
+const char kBlackBackground[] = "\33[48;5;20m";
+const char kResetBackground[] = "\33[49m";
 
 enum Color : int8_t { kWhite, kBlack };
 
@@ -21,45 +24,13 @@ typedef int8_t Square;
 struct Piece {
   Color color;
   Type type;
-
-  // https://en.wikipedia.org/wiki/Chess_symbols_in_Unicode
-  friend std::ostream &operator<<(std::ostream &stream, const Piece &piece) {
-    stream << ((piece.color == kWhite) ? kWhiteText : kBlackText);
-    switch (piece.type) {
-    case kNone:
-      stream << ' ';
-      break;
-    case kKing:
-      stream << "\u2654";
-      break;
-    case kQueen:
-      stream << "\u2655";
-      break;
-    case kRook:
-      stream << "\u2656";
-      break;
-    case kBishop:
-      stream << "\u2657";
-      break;
-    case kKnight:
-      stream << "\u2658";
-      break;
-    case kPawn:
-      stream << "\u2659";
-      break;
-    }
-    // TODO use format with c++2a
-    // stream << std::format("\u{:x}", 9812 + piece.type);
-    stream << kResetText;
-    return stream;
-  }
 };
 
 class Chess {
 private:
   std::vector<Piece> board_;
   // std::array<Piece, 64> board_;
-  Color colorToMove_;
+  bool color_to_move_;
   std::vector<std::string> history_;
 
 public:
@@ -75,30 +46,58 @@ public:
       CreatePiece(kWhite, major_rank[i], i + 56);
     }
 
-    colorToMove_ = kWhite;
+    color_to_move_ = kWhite;
+  }
+
+  std::string PieceString(Piece piece) const {
+    // https://en.wikipedia.org/wiki/Chess_symbols_in_Unicode
+    const std::vector<std::string> unicode_pieces = {
+        " ", "\u2654", "\u2655", "\u2656", "\u2657", "\u2658", "\u2659"};
+    return unicode_pieces[piece.type];
+  }
+
+  // Print the board with rank labels on the left
+  std::string BoardString() const {
+    std::string output;
+    for (int8_t rank = 0; rank < 8; ++rank) {
+      output += '8' - rank;
+      output += ' ';
+      for (int8_t file = 0; file < 8; ++file) {
+        output += ((rank + file) % 2 ? kBlackBackground : kWhiteBackground);
+        output += ' ';
+        output += PieceString(board_[rank * 8 + file]);
+        output += ' ';
+      }
+      output += kResetBackground;
+      output += kResetText;
+      output += '\n';
+    }
+    // Print file labels
+    output += "  ";
+    for (char file = 'a'; file <= 'h'; ++file) {
+      output += ' ';
+      output += file;
+      output += ' ';
+    }
+    return output;
+  }
+
+  std::string HistoryString() const {
+    std::string output;
+    for (size_t i = 0; i < history_.size(); ++i) {
+      output += '1' + i;
+      output += ". ";
+      output += history_[i];
+      output += ' ';
+    }
+    return output;
   }
 
   friend std::ostream &operator<<(std::ostream &stream, const Chess &game) {
     stream << '\n';
-    // Print the board with rank labels on the left
-    for (int8_t rank = 0; rank < 8; ++rank) {
-      stream << static_cast<int>(8 - rank) << ' ';
-      for (int8_t file = 0; file < 8; ++file) {
-        stream << ((rank + file) % 2 ? kBlackBackground : kWhiteBackground);
-        stream << ' ' << game.board_[rank * 8 + file] << ' ';
-      }
-      stream << kResetBackground << '\n';
-    }
-    // Print file labels
-    stream << "  ";
-    for (char file = 'a'; file <= 'h'; ++file) {
-      stream << ' ' << file << ' ';
-    }
-    // Finally, print out the move history
+    stream << game.BoardString();
     stream << "\n\n";
-    for (size_t i = 0; i < game.history_.size(); ++i) {
-      stream << (i + 1) << ". " << game.history_[i] << ' ';
-    }
+    stream << game.HistoryString();
     return stream;
   }
 
@@ -112,7 +111,6 @@ public:
   };
 
   // https://en.wikipedia.org/wiki/Algebraic_notation_(chess)
-  // K for king, Q for queen, R for rook, B for bishop, and N for knight
   Move ParseAlgebraicNotation(const std::string move) {
     // TODO do stripping if contains and x for capture or e.p. for en passant.
     // Also handle special case of castling
@@ -143,7 +141,7 @@ public:
 
     std::vector<Square> candidates;
     for (Square i = 0; i < board_.size(); ++i) {
-      if (board_[i].type == type && board_[i].color == colorToMove_) {
+      if (board_[i].type == type && board_[i].color == color_to_move_) {
         // TODO Is it viable?
         candidates.push_back(i);
       }
@@ -183,7 +181,7 @@ public:
   inline void MakeMove(Square from, Square to) {
     board_[to] = board_[from];
     board_[from].type = kNone;
-    colorToMove_ = ((colorToMove_ == kWhite) ? kBlack : kWhite);
+    color_to_move_ = !color_to_move_;
   }
 };
 
