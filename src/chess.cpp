@@ -1,7 +1,14 @@
 #include <iostream>
 #include <string>
 #include <vector>
-// #include <format>
+
+// Define color scheme via ANSI escape codes
+const std::string kWhiteText = "\33[37m";
+const std::string kBlackText = "\33[30m";
+const std::string kResetText = "\33[39m";
+const std::string kWhiteBackground = "\33[48;5;33m";
+const std::string kBlackBackground = "\33[48;5;20m";
+const std::string kResetBackground = "\33[49m";
 
 typedef int8_t Square;
 
@@ -10,9 +17,12 @@ struct Move {
   Square to;
 };
 
-enum Color : int8_t { White, Black };
+enum Color : int8_t { kWhite, kBlack };
 
-enum PieceType : int8_t { King, Queen, Rook, Bishop, Knight, Pawn };
+enum PieceType : int8_t { kKing, kQueen, kRook, kBishop, kKnight, kPawn };
+
+const std::vector<PieceType> major_rank = {kRook,  kKnight, kBishop, kKing,
+                                           kQueen, kBishop, kKnight, kRook};
 
 struct Piece {
   Color color;
@@ -21,29 +31,29 @@ struct Piece {
 
   // https://en.wikipedia.org/wiki/Chess_symbols_in_Unicode
   friend std::ostream &operator<<(std::ostream &stream, const Piece &piece) {
-    stream << ((piece.color == White) ? "\33[31m" : "\33[32m");
+    stream << ((piece.color == kWhite) ? kWhiteText : kBlackText);
     switch (piece.type) {
-    case King:
+    case kKing:
       stream << "\u2654";
       break;
-    case Queen:
+    case kQueen:
       stream << "\u2655";
       break;
-    case Rook:
+    case kRook:
       stream << "\u2656";
       break;
-    case Bishop:
+    case kBishop:
       stream << "\u2657";
       break;
-    case Knight:
+    case kKnight:
       stream << "\u2658";
       break;
-    case Pawn:
+    case kPawn:
       stream << "\u2659";
       break;
     }
     // stream << std::format("\u{:x}", 9812 + piece.type);
-    stream << "\033[0m";
+    stream << kResetText;
     return stream;
   }
 };
@@ -62,65 +72,47 @@ public:
     }
 
     pieces_.reserve(32);
+    for (int8_t i = 0; i < 8; i++) {
+      CreatePiece(kBlack, major_rank[i], i);
+      CreatePiece(kBlack, kPawn, i + 8);
+      CreatePiece(kWhite, kPawn, i + 48);
+      CreatePiece(kWhite, major_rank[i], i + 56);
+    }
+  }
 
-    CreatePiece(White, Rook, 0);
-    CreatePiece(White, Knight, 8);
-    CreatePiece(White, Bishop, 16);
-    CreatePiece(White, King, 24);
-    CreatePiece(White, Queen, 32);
-    CreatePiece(White, Bishop, 40);
-    CreatePiece(White, Knight, 48);
-    CreatePiece(White, Rook, 56);
-
-    CreatePiece(White, Pawn, 1);
-    CreatePiece(White, Pawn, 9);
-    CreatePiece(White, Pawn, 17);
-    CreatePiece(White, Pawn, 25);
-    CreatePiece(White, Pawn, 33);
-    CreatePiece(White, Pawn, 41);
-    CreatePiece(White, Pawn, 49);
-    CreatePiece(White, Pawn, 57);
-
-    CreatePiece(Black, Pawn, 6);
-    CreatePiece(Black, Pawn, 14);
-    CreatePiece(Black, Pawn, 22);
-    CreatePiece(Black, Pawn, 30);
-    CreatePiece(Black, Pawn, 38);
-    CreatePiece(Black, Pawn, 46);
-    CreatePiece(Black, Pawn, 54);
-    CreatePiece(Black, Pawn, 62);
-
-    CreatePiece(Black, Rook, 7);
-    CreatePiece(Black, Knight, 15);
-    CreatePiece(Black, Bishop, 23);
-    CreatePiece(Black, King, 31);
-    CreatePiece(Black, Queen, 39);
-    CreatePiece(Black, Bishop, 47);
-    CreatePiece(Black, Knight, 55);
-    CreatePiece(Black, Rook, 63);
+  friend std::ostream &operator<<(std::ostream &stream, const Board &board) {
+    bool isWhiteSquare = true;
+    for (int8_t rank = 0; rank < 8; ++rank) {
+      stream << static_cast<int>(8 - rank);
+      stream << " ";
+      for (int8_t file = 0; file < 8; ++file) {
+        stream << (isWhiteSquare ? kWhiteBackground : kBlackBackground);
+        int8_t square = board.squares_[rank * 8 + file];
+        stream << " ";
+        if (square == -1) {
+          stream << " ";
+        } else {
+          stream << board.pieces_[square];
+        }
+        stream << " ";
+        isWhiteSquare = !isWhiteSquare;
+      }
+      stream << kResetBackground;
+      stream << "\n";
+      isWhiteSquare = !isWhiteSquare;
+    }
+    stream << "  ";
+    for (int8_t file = 0; file < 8; ++file) {
+      stream << " ";
+      stream << static_cast<char>('a' + file);
+      stream << " ";
+    }
+    return stream;
   }
 
   void CreatePiece(Color color, PieceType type, int8_t square) {
     squares_[square] = pieces_.size();
     pieces_.push_back({color, type, square});
-  }
-
-  friend std::ostream &operator<<(std::ostream &stream, const Board &board) {
-    for (int8_t rank = 0; rank < 8; ++rank) {
-      for (int8_t file = 0; file < 8; ++file) {
-        int8_t square = board.squares_[file * 8 + rank];
-        if (square == -1) {
-          stream << "\u23b5";
-        } else {
-          stream << board.pieces_[square];
-        }
-        stream << " ";
-      }
-      if (rank != 7) {
-        stream << "\n";
-      }
-    }
-    return stream;
   }
 
   // https://en.wikipedia.org/wiki/Algebraic_notation_(chess)
@@ -132,22 +124,22 @@ public:
     PieceType piece_type;
     switch (move[0]) {
     case 'K':
-      piece_type = King;
+      piece_type = kKing;
       break;
     case 'Q':
-      piece_type = Queen;
+      piece_type = kQueen;
       break;
     case 'R':
-      piece_type = Rook;
+      piece_type = kRook;
       break;
     case 'B':
-      piece_type = Bishop;
+      piece_type = kBishop;
       break;
     case 'N':
-      piece_type = Knight;
+      piece_type = kKnight;
       break;
     default:
-      piece_type = Pawn;
+      piece_type = kPawn;
       break;
     }
 
@@ -176,11 +168,11 @@ public:
   std::vector<Square> LegalMovesForPiece(Piece piece) {
     std::vector<Square> moves;
     switch (piece.type) {
-    case King:
+    case kKing:
       break;
-    case Queen:
+    case kQueen:
       break;
-    case Rook:
+    case kRook:
       for (int i = 0; i < 8; ++i) {
         moves.push_back(8 * (piece.square / 8) + i); // file
         // if occupied, break
@@ -190,11 +182,11 @@ public:
         // if occupied, break
       }
       break;
-    case Bishop:
+    case kBishop:
       break;
-    case Knight:
+    case kKnight:
       break;
-    case Pawn:
+    case kPawn:
       moves.push_back(piece.square + 1);
       moves.push_back(piece.square + 2); // TODO two jump
       moves.push_back(piece.square - 7); // TODO attack left
@@ -208,6 +200,6 @@ public:
 int main() {
   Board board;
   std::cout << board << std::endl;
-  board.ParseAlgebraicNotation("Be5");
+  // board.ParseAlgebraicNotation("Be5");
   return 0;
 }
