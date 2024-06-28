@@ -121,7 +121,6 @@ public:
   // Perform the move in memory and switch with the other player. We return the
   // previous Piece on Square to in case we have to revet the move later (such
   // as during a minimax search)
-  // TODO Should verify the move is legal before this
   inline Piece MakeMove(Square from, Square to) {
     Piece captured = board_[to];
 
@@ -185,19 +184,19 @@ public:
     return 0;
   }
 
-  // TODO
   std::vector<Move> LegalMoves() {
     // TODO
     return {};
   }
 
-  // https://en.wikipedia.org/wiki/Algebraic_notation_(chess)
   Move ParseAlgebraicNotation(const std::string move) {
     // TODO do stripping if contains and x for capture or e.p. for en passant.
     // Also handle special case of castling
     assert('a' <= move[1] && move[1] <= 'h');
     assert('1' <= move[2] && move[2] <= '8');
 
+    // https://en.wikipedia.org/wiki/Algebraic_notation_(chess)
+    // We read off the type of the piece being moved and its destination
     Type type;
     switch (move[0]) {
     case 'K':
@@ -219,7 +218,9 @@ public:
       type = kPawn;
       break;
     }
+    const Square to = ('h' - move[1]) + 8 * (move[2] - '1');
 
+    // Now we look for pieces of that type that can moved to the destination
     std::vector<Square> candidates;
     for (Square i = 0; i < board_.size(); ++i) {
       if (board_[i].type == type && board_[i].is_white == white_to_move_) {
@@ -227,13 +228,10 @@ public:
         candidates.push_back(i);
       }
     }
-
+    // The piece to move should now be unambiguous
     assert(candidates.size() == 1);
-    const Square from = candidates[0];
-    const Square to = ('h' - move[1]) + 8 * (move[2] - '1');
-
     history_.push_back(move);
-    return {from, to};
+    return {candidates[0], to};
   }
 };
 
@@ -245,7 +243,7 @@ int main() {
     system("clear");
     std::cout << game << std::endl;
 
-    // Get use input for the move
+    // Allow the user to input a move
     // TODO overload >> instead of having a function
     std::cout << "Please enter a move: ";
     std::cin >> input;
