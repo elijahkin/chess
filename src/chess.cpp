@@ -1,9 +1,11 @@
 // #include <array>
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
 // #include <format>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -50,6 +52,10 @@ public:
       CreatePiece(false, major_rank[i], i + 56);
     }
     white_to_move_ = true;
+  }
+
+  void CreatePiece(bool is_white, Type type, Square square) {
+    board_[square] = {is_white, type};
   }
 
   std::string PieceString(Piece piece) const {
@@ -107,14 +113,83 @@ public:
     return stream;
   }
 
-  void CreatePiece(bool is_white, Type type, Square square) {
-    board_[square] = {is_white, type};
-  }
-
   struct Move {
     Square from;
     Square to;
   };
+
+  // Perform the move in memory and switch with the other player. We return the
+  // previous Piece on Square to in case we have to revet the move later (such
+  // as during a minimax search)
+  // TODO Should verify the move is legal before this
+  inline Piece MakeMove(Square from, Square to) {
+    Piece captured = board_[to];
+
+    board_[to] = board_[from];
+    board_[from].type = kNone;
+
+    white_to_move_ = !white_to_move_;
+    return captured;
+  }
+
+  inline void RevertMove(Square from, Square to, Piece captured) {
+    board_[from] = board_[to];
+    board_[to] = captured;
+    white_to_move_ = !white_to_move_;
+  }
+
+  int MinimaxHelper(int8_t max_depth, int8_t depth, Move move) {
+    // Make the move, storing any captured piece
+    Piece captured = MakeMove(move.from, move.to);
+    int value;
+    if (depth < max_depth) {
+      // If we've not yet reached the desired depth, continue recursing,
+      // alternating between selecting the minimizer and maximizer at each level
+      std::vector<int> values;
+      for (auto child : LegalMoves()) {
+        values.push_back(MinimaxHelper(max_depth, depth + 1, child));
+      }
+      // Take the maximum on even depths and the minimum on odd depths
+      if (depth % 2 == 0) {
+        value = *std::max_element(values.begin(), values.end());
+      } else {
+        value = *std::min_element(values.begin(), values.end());
+      }
+    } else {
+      // When we reached the desired depth, compute material advantage
+      value = MaterialAdvantage();
+    }
+    // Revert the move and return its value
+    RevertMove(move.from, move.to, captured);
+    return value;
+  }
+
+  // The shallowest level of the minimax search is separate because we want to
+  // return the move itself instead of its value
+  Move Minimax(int8_t max_depth) {
+    int best_value = std::numeric_limits<int>::min();
+    Move best_move;
+    for (auto move : LegalMoves()) {
+      int value = MinimaxHelper(max_depth, 1, move);
+      if (value > best_value) {
+        best_value = value;
+        best_move = move;
+      }
+    }
+    return best_move;
+  }
+
+  // Compute the sum of white's material minus the sum of black's material
+  int MaterialAdvantage() {
+    // TODO
+    return 0;
+  }
+
+  // TODO
+  std::vector<Move> LegalMoves() {
+    // TODO
+    return {};
+  }
 
   // https://en.wikipedia.org/wiki/Algebraic_notation_(chess)
   Move ParseAlgebraicNotation(const std::string move) {
@@ -159,35 +234,6 @@ public:
 
     history_.push_back(move);
     return {from, to};
-  }
-
-  std::vector<Square> LegalMovesForPiece(Piece piece) {
-    std::vector<Square> moves;
-    switch (piece.type) {
-    case kNone:
-      break;
-    case kKing:
-      break;
-    case kQueen:
-      break;
-    case kRook:
-      break;
-    case kBishop:
-      break;
-    case kKnight:
-      break;
-    case kPawn:
-      break;
-    }
-    return moves;
-  }
-
-  // TODO should first verify that the move is legal
-  // Write the move to memory and switch to the other player
-  inline void MakeMove(Square from, Square to) {
-    board_[to] = board_[from];
-    board_[from].type = kNone;
-    white_to_move_ = !white_to_move_;
   }
 };
 
