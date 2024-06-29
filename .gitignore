@@ -1,1 +1,3 @@
-bin/
+# Ignore all files except those with extensions
+*
+!*.*
