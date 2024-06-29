@@ -1,5 +1,5 @@
-// #include <array>
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
@@ -9,109 +9,125 @@
 #include <string>
 #include <vector>
 
-// Define color scheme via ANSI escape codes
-const char kWhiteText[] = "\33[37m";
-const char kBlackText[] = "\33[30m";
-const char kResetText[] = "\33[39m";
-const char kWhiteBackground[] = "\33[48;5;33m";
-const char kBlackBackground[] = "\33[48;5;20m";
-const char kResetBackground[] = "\33[49m";
-
-enum Type : int8_t { kNone, kKing, kQueen, kRook, kBishop, kKnight, kPawn };
-
-typedef int8_t Square;
-
-struct Piece {
-  bool is_white;
-  Type type;
+enum Piece : int8_t {
+  kNone,
+  kWhiteKing,
+  kWhiteQueen,
+  kWhiteRook,
+  kWhiteBishop,
+  kWhiteKnight,
+  kWhitePawn,
+  kBlackKing,
+  kBlackQueen,
+  kBlackRook,
+  kBlackBishop,
+  kBlackKnight,
+  kBlackPawn
 };
+
+bool IsWhite(const Piece piece) {
+  return (piece >= kWhiteKing && piece <= kWhitePawn);
+}
 
 class Chess {
 private:
-  // In memory, we store the board rank-major such that the elements of board_
-  // correspond to the squares like so: 1a ... 1h 2a ... 2h ... 7h 8a ... 8h
-  // TODO switch to std::array<Piece, 64>
-  std::vector<Piece> board_;
+  // In memory, we store the board rank-major such that the squares laid out in
+  // board_ like so: 1a ... 1h 2a ... 2h ... 7h 8a ... 8h. This makes it easier
+  // to initialize the board in its starting position
+  std::array<Piece, 64> board_;
   // This boolean keeps track of whose turn it is
   bool white_to_move_;
-  // We record each move in algebraic notation in this vector
+  // We record the algebraic notation of each move in this vector
   std::vector<std::string> history_;
 
 public:
-  // Set up the board with the pieces in their starting positions. The ranks are
-  // numbered starting from white's side of the board, such that white's pieces
-  // start in ranks 1 and 2.
   Chess() {
-    board_.resize(64);
-    const std::vector<Type> major_rank = {kRook,  kKnight, kBishop, kKing,
-                                          kQueen, kBishop, kKnight, kRook};
-    for (Square i = 0; i < 8; ++i) {
-      CreatePiece(true, major_rank[i], i);
-      CreatePiece(true, kPawn, i + 8);
-      CreatePiece(false, kPawn, i + 48);
-      CreatePiece(false, major_rank[i], i + 56);
+    // Define the types and order of pieces in white's major rank. The same
+    // order is copied for black's major rank
+    const std::vector<Piece> white_major = {
+        kWhiteRook,  kWhiteKnight, kWhiteBishop, kWhiteKing,
+        kWhiteQueen, kWhiteBishop, kWhiteKnight, kWhiteRook};
+
+    // Set up the board with the pieces in their starting positions. The ranks
+    // are numbered starting from white's side of the board, such that white's
+    // pieces start in ranks 1 and 2
+    for (int8_t rank = 1; rank <= 8; ++rank) {
+      for (char file = 'a'; file <= 'h'; ++file) {
+        Piece piece;
+        if (rank == 1 || rank == 8) {
+          piece = white_major[file - 'a'];
+        } else if (rank == 2 || rank == 7) {
+          piece = kWhitePawn;
+        } else {
+          piece = kNone;
+        }
+        if (rank == 7 || rank == 8) {
+          piece = static_cast<Piece>(piece + 6);
+        }
+        CreatePiece(piece, file, rank);
+      }
     }
     white_to_move_ = true;
   }
 
-  void CreatePiece(bool is_white, Type type, Square square) {
-    board_[square] = {is_white, type};
+  void CreatePiece(Piece piece, char file, int8_t rank) {
+    board_[8 * (rank - 1) + (file - 'a')] = piece;
   }
 
-  std::string PieceString(Piece piece) const {
+  // TODO add a perspective_ field to determine how we print the board
+  friend std::ostream &operator<<(std::ostream &stream, const Chess &game) {
+    // Define color scheme via ANSI escape codes
+    const char kPieceText[] = "\33[30m";
+    const char kHistoryText[] = "\33[38;5;240m";
+    const char kResetText[] = "\33[39m";
+    const char kWhiteBackground[] = "\33[47m";
+    const char kBlackBackground[] = "\33[45m";
+    const char kResetBackground[] = "\33[49m";
+
     // https://en.wikipedia.org/wiki/Chess_symbols_in_Unicode
     const std::vector<std::string> unicode_pieces = {
-        " ", "\u2654", "\u2655", "\u2656", "\u2657", "\u2658", "\u2659"};
-    std::string output;
-    output += (piece.is_white ? kWhiteText : kBlackText);
-    output += unicode_pieces[piece.type];
-    return output;
-  }
+        " ",      "\u2654", "\u2655", "\u2656", "\u2657", "\u2658", "\u2659",
+        "\u265a", "\u265b", "\u265c", "\u265d", "\u265e", "\u265f"};
 
-  // Print the board with rank labels on the left
-  std::string BoardString() const {
+    // For each rank, print out the rank label on the left, then the squares of
+    // that rank, then every eighth move in the move history
     std::string output;
     for (int8_t rank = 0; rank < 8; ++rank) {
       output += '1' + rank;
       output += ' ';
+      output += kPieceText;
       for (int8_t file = 0; file < 8; ++file) {
         output += ((rank + file) % 2 ? kBlackBackground : kWhiteBackground);
-        output += ' ';
-        output += PieceString(board_[rank * 8 + file]);
+        output += unicode_pieces[game.board_[rank * 8 + file]];
         output += ' ';
       }
       output += kResetBackground;
+      // Print out every eighth move in the move history offset by rank
+      output += kHistoryText;
+      for (size_t move = rank; move < game.history_.size(); move += 8) {
+        output += "  ";
+        // Accommodate for move numbers up to 999
+        std::string move_num_str = std::to_string(move + 1);
+        move_num_str.insert(0, 3 - move_num_str.size(), ' ');
+        output += move_num_str;
+        output += ". ";
+        // TODO Pad to support algebraic notation of different lengths
+        output += game.history_[move];
+      }
       output += kResetText;
       output += '\n';
     }
-    // Print file labels
+    // It remains to print out the file labels on the bottom
     output += "  ";
     for (char file = 'h'; file >= 'a'; --file) {
-      output += ' ';
       output += file;
       output += ' ';
     }
-    return output;
-  }
-
-  std::string HistoryString() const {
-    std::string output;
-    for (size_t i = 0; i < history_.size(); ++i) {
-      output += '1' + i;
-      output += ". ";
-      output += history_[i];
-      output += ' ';
-    }
-    return output;
-  }
-
-  friend std::ostream &operator<<(std::ostream &stream, const Chess &game) {
-    stream << '\n';
-    stream << game.BoardString();
-    stream << "\n\n";
-    stream << game.HistoryString();
+    stream << output;
     return stream;
   }
+
+  typedef int8_t Square;
 
   struct Move {
     Square from;
@@ -125,7 +141,7 @@ public:
     Piece captured = board_[to];
 
     board_[to] = board_[from];
-    board_[from].type = kNone;
+    board_[from] = kNone;
 
     white_to_move_ = !white_to_move_;
     return captured;
@@ -190,40 +206,41 @@ public:
   }
 
   Move ParseAlgebraicNotation(const std::string move) {
-    // TODO do stripping if contains and x for capture or e.p. for en passant.
-    // Also handle special case of castling
+    // TODO Strip out x for capture or e.p. for en passant.
+    // TODO Also handle special case of castling
     assert('a' <= move[1] && move[1] <= 'h');
     assert('1' <= move[2] && move[2] <= '8');
 
     // https://en.wikipedia.org/wiki/Algebraic_notation_(chess)
     // We read off the type of the piece being moved and its destination
-    Type type;
+    int8_t offset;
     switch (move[0]) {
     case 'K':
-      type = kKing;
+      offset = 1;
       break;
     case 'Q':
-      type = kQueen;
+      offset = 2;
       break;
     case 'R':
-      type = kRook;
+      offset = 3;
       break;
     case 'B':
-      type = kBishop;
+      offset = 4;
       break;
     case 'N':
-      type = kKnight;
+      offset = 5;
       break;
     default:
-      type = kPawn;
+      offset = 6;
       break;
     }
+    const Piece type = static_cast<Piece>(6 * !white_to_move_ + offset);
     const Square to = ('h' - move[1]) + 8 * (move[2] - '1');
 
     // Now we look for pieces of that type that can moved to the destination
     std::vector<Square> candidates;
-    for (Square i = 0; i < board_.size(); ++i) {
-      if (board_[i].type == type && board_[i].is_white == white_to_move_) {
+    for (size_t i = 0; i < board_.size(); ++i) {
+      if (board_[i] == type && IsWhite(board_[i]) == white_to_move_) {
         // TODO Is it viable?
         candidates.push_back(i);
       }
@@ -244,11 +261,10 @@ int main() {
     std::cout << game << std::endl;
 
     // Allow the user to input a move
-    // TODO overload >> instead of having a function
-    std::cout << "Please enter a move: ";
+    std::cout << "\nPlease enter a move: ";
+    // TODO Overload >> instead of having a function?
     std::cin >> input;
     Chess::Move move = game.ParseAlgebraicNotation(input);
-
     game.MakeMove(move.from, move.to);
   }
   return 0;
