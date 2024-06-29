@@ -139,35 +139,33 @@ public:
     return stream;
   }
 
-  typedef int8_t Square;
-
   struct Move {
-    Square from;
-    Square to;
+    int8_t from;
+    int8_t to;
   };
 
-  // Perform the move in memory and switch with the other player. We return the
-  // previous Piece on Square to in case we have to revet the move later (such
-  // as during a minimax search)
-  inline Piece MakeMove(Square from, Square to) {
-    Piece captured = board_[to];
+  // Perform the move in memory and switch with the other player. We also return
+  // the Piece previously on the square move.to in case we have to revert the
+  // move later (such as during a minimax search)
+  inline Piece MakeMove(Move move) {
+    Piece captured = board_[move.to];
 
-    board_[to] = board_[from];
-    board_[from] = kNone;
+    board_[move.to] = board_[move.from];
+    board_[move.from] = kNone;
 
     white_to_move_ = !white_to_move_;
     return captured;
   }
 
-  inline void RevertMove(Square from, Square to, Piece captured) {
-    board_[from] = board_[to];
-    board_[to] = captured;
+  inline void RevertMove(Move move, Piece captured) {
+    board_[move.from] = board_[move.to];
+    board_[move.to] = captured;
     white_to_move_ = !white_to_move_;
   }
 
   int MinimaxHelper(int8_t max_depth, int8_t depth, Move move) {
     // Make the move, storing any captured piece
-    Piece captured = MakeMove(move.from, move.to);
+    Piece captured = MakeMove(move);
     int value;
     if (depth < max_depth) {
       // If we've not yet reached the desired depth, continue recursing,
@@ -187,7 +185,7 @@ public:
       value = MaterialAdvantage();
     }
     // Revert the move and return its value
-    RevertMove(move.from, move.to, captured);
+    RevertMove(move, captured);
     return value;
   }
 
@@ -207,22 +205,56 @@ public:
   }
 
   // Compute the sum of white's material minus the sum of black's material
+  // TODO supply this function based on which player is Minimax
   int MaterialAdvantage() const {
     const std::vector<int> kMaterialValues = {0,   40, 9,  5,  3,  3, 1,
                                               -40, -9, -5, -3, -3, -1};
     int material_advantage = 0;
     for (auto piece : board_) {
-      material_advantage += kMaterialValues[piece];
+      material_advantage -= kMaterialValues[piece];
     }
     return material_advantage;
   }
 
-  std::vector<Move> LegalMoves() {
+  // These terse function are designed to make the logic of scanning for moves
+  // more intuitive. It is common to want to know whether a particular square is
+  // occupied
+  bool IsOccupied(int64_t square) { return board_[square] != kNone; }
+
+  // We would also often like to know whether a square is occupied by the
+  // opponent
+  bool IsOpponent(int64_t square) {
+    return IsOccupied(square) && (IsWhite(board_[square]) != white_to_move_);
+  }
+
+  // Compute a vector squares that a particular piece can move to. We use
+  // fallthrough here for every piece type except pawns (pawns can only move in
+  // one direction depending on color)
+  std::vector<int8_t> LegalMoves(int8_t from) {
     // TODO
     return {};
   }
 
-  Move ParseAlgebraicNotation(const std::string move) {
+  std::vector<Move> LegalMoves() {
+    std::vector<Move> moves;
+    for (int8_t from = 0; from < 64; ++from) {
+      if (IsWhite(board_[from]) == white_to_move_) {
+        std::vector<int8_t> tos = LegalMoves(from);
+        for (int8_t to : tos) {
+          moves.push_back({from, to});
+        }
+      }
+    }
+    return moves;
+  }
+
+  Move ParseAlgebraicNotation(std::string move) {
+    // If the first letter is lowercase, this is a pawn move; We should insert
+    // an extra character at the beginning
+    if (std::islower(move[0])) {
+      move.insert(0, " ");
+    }
+
     // TODO Strip out x for capture or e.p. for en passant.
     // TODO Also handle special case of castling
     assert('a' <= move[1] && move[1] <= 'h');
@@ -252,20 +284,36 @@ public:
       break;
     }
     const Piece type = static_cast<Piece>(6 * !white_to_move_ + offset);
-    const Square to = LogicalToPhysical(move[1], move[2]);
+    const int8_t to = LogicalToPhysical(move[1], move[2]);
 
     // Now we look for pieces of that type that can moved to the destination
-    std::vector<Square> candidates;
-    for (size_t i = 0; i < board_.size(); ++i) {
-      if (board_[i] == type && IsWhite(board_[i]) == white_to_move_) {
+    std::vector<int8_t> from_candidates;
+    for (size_t from = 0; from < board_.size(); ++from) {
+      if (board_[from] == type && IsWhite(board_[from]) == white_to_move_) {
         // TODO Is it viable?
-        candidates.push_back(i);
+        from_candidates.push_back(from);
       }
     }
     // The piece to move should now be unambiguous
-    assert(candidates.size() == 1);
-    history_.push_back(move);
-    return {candidates[0], to};
+    assert(from_candidates.size() == 1);
+    return {from_candidates[0], to};
+  }
+
+  // Note that this function relies on the move not yet being made to retrieve
+  // the piece type
+  std::string ToString(Chess::Move move) {
+    const std::vector<char> kPieceLetters = {'K', 'Q', 'R', 'B', 'N', '\0'};
+    std::string output;
+    output += kPieceLetters[(board_[move.from] - 1) % 6];
+    output += (move.to % 8) + 'a';
+    output += std::to_string(1 + move.to / 8);
+    return output;
+  }
+
+  // Log the move to history_ to be printed with the board
+  inline void MakeMakeWithHistory(Move move) {
+    history_.push_back(ToString(move));
+    MakeMove(move);
   }
 };
 
@@ -278,11 +326,11 @@ int main() {
     std::cout << game << std::endl;
 
     // Allow the user to input a move
-    std::cout << "\nPlease enter a move: ";
+    std::cout << "Please enter a move: ";
     // TODO Overload >> instead of having a function?
     std::cin >> input;
     Chess::Move move = game.ParseAlgebraicNotation(input);
-    game.MakeMove(move.from, move.to);
+    game.MakeMakeWithHistory(move);
   }
   return 0;
 }
