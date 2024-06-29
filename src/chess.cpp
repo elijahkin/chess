@@ -85,7 +85,6 @@ public:
     return board_[LogicalToPhysical(file, rank)];
   }
 
-  // TODO add a perspective_ field to determine how we print the board
   friend std::ostream &operator<<(std::ostream &stream, const Chess &game) {
     // Define color scheme via ANSI escape codes
     const char kPieceText[] = "\33[30m";
@@ -96,7 +95,7 @@ public:
     const char kResetBackground[] = "\33[49m";
 
     // https://en.wikipedia.org/wiki/Chess_symbols_in_Unicode
-    const std::vector<std::string> unicode_pieces = {
+    const std::vector<std::string> kUnicodePieces = {
         " ",      "\u2654", "\u2655", "\u2656", "\u2657", "\u2658", "\u2659",
         "\u265a", "\u265b", "\u265c", "\u265d", "\u265e", "\u265f"};
 
@@ -113,7 +112,7 @@ public:
           // The board is such that top left square is white for both players
           output += ((row + col) % 2 ? kBlackBackground : kWhiteBackground);
           output += kPieceText;
-          output += unicode_pieces[game.GetPiece(file, rank)];
+          output += kUnicodePieces[game.GetPiece(file, rank)];
         } else {
           output += file;
         }
@@ -122,14 +121,15 @@ public:
       output += kResetBackground;
       // Print out every eighth move in the move history offset by rank
       output += kHistoryText;
-      for (size_t move = row; move < game.history_.size(); move += 8) {
-        output += "  ";
+      output += ' ';
+      for (size_t move = row; move < game.history_.size(); move += 9) {
         // Accommodate for move numbers up to 999
         std::string move_str = std::to_string(move + 1);
         move_str.insert(0, 3 - move_str.size(), ' ');
         move_str += ". ";
-        // TODO Pad to support algebraic notation of different lengths
+        // Pad to support algebraic notation of different lengths
         move_str += game.history_[move];
+        move_str.insert(move_str.end(), 10 - move_str.size(), ' ');
         output += move_str;
       }
       output += kResetText;
@@ -207,9 +207,14 @@ public:
   }
 
   // Compute the sum of white's material minus the sum of black's material
-  int MaterialAdvantage() {
-    // TODO
-    return 0;
+  int MaterialAdvantage() const {
+    const std::vector<int> kMaterialValues = {0,   40, 9,  5,  3,  3, 1,
+                                              -40, -9, -5, -3, -3, -1};
+    int material_advantage = 0;
+    for (auto piece : board_) {
+      material_advantage += kMaterialValues[piece];
+    }
+    return material_advantage;
   }
 
   std::vector<Move> LegalMoves() {
