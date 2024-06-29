@@ -103,16 +103,20 @@ public:
     // For each rank, print out the rank label on the left, then the squares of
     // that rank, then every eighth move in the move history
     std::string output;
-    for (int row = 0; row < 8; ++row) {
+    for (int row = 0; row < 9; ++row) {
       char rank = (game.white_perspective_ ? '8' - row : '1' + row);
-      output += rank;
+      output += (row == 8 ? ' ' : rank);
       output += ' ';
-      output += kPieceText;
       for (int col = 0; col < 8; ++col) {
-        // The board is such that top left square is white for both players
-        output += ((row + col) % 2 ? kBlackBackground : kWhiteBackground);
         char file = (game.white_perspective_ ? 'a' + col : 'h' - col);
-        output += unicode_pieces[game.GetPiece(file, rank)];
+        if (row != 8) {
+          // The board is such that top left square is white for both players
+          output += ((row + col) % 2 ? kBlackBackground : kWhiteBackground);
+          output += kPieceText;
+          output += unicode_pieces[game.GetPiece(file, rank)];
+        } else {
+          output += file;
+        }
         output += ' ';
       }
       output += kResetBackground;
@@ -130,13 +134,6 @@ public:
       }
       output += kResetText;
       output += '\n';
-    }
-    // It remains to print out the file labels on the bottom
-    output += "  ";
-    for (int col = 0; col < 8; ++col) {
-      char file = (game.white_perspective_ ? 'a' + col : 'h' - col);
-      output += file;
-      output += ' ';
     }
     stream << output;
     return stream;
