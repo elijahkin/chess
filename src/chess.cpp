@@ -39,39 +39,50 @@ private:
   bool white_to_move_;
   // We record the algebraic notation of each move in this vector
   std::vector<std::string> history_;
+  // This field determines from whose perspective we print the board
+  bool white_perspective_;
 
 public:
-  Chess() {
+  Chess(bool white_perspective) {
     // Define the types and order of pieces in white's major rank. The same
     // order is copied for black's major rank
     const std::vector<Piece> white_major = {
-        kWhiteRook,  kWhiteKnight, kWhiteBishop, kWhiteKing,
-        kWhiteQueen, kWhiteBishop, kWhiteKnight, kWhiteRook};
+        kWhiteRook, kWhiteKnight, kWhiteBishop, kWhiteQueen,
+        kWhiteKing, kWhiteBishop, kWhiteKnight, kWhiteRook};
 
     // Set up the board with the pieces in their starting positions. The ranks
     // are numbered starting from white's side of the board, such that white's
     // pieces start in ranks 1 and 2
-    for (int8_t rank = 1; rank <= 8; ++rank) {
+    for (char rank = '1'; rank <= '8'; ++rank) {
       for (char file = 'a'; file <= 'h'; ++file) {
         Piece piece;
-        if (rank == 1 || rank == 8) {
+        if (rank == '1' || rank == '8') {
           piece = white_major[file - 'a'];
-        } else if (rank == 2 || rank == 7) {
+        } else if (rank == '2' || rank == '7') {
           piece = kWhitePawn;
         } else {
           piece = kNone;
         }
-        if (rank == 7 || rank == 8) {
+        if (rank == '7' || rank == '8') {
           piece = static_cast<Piece>(piece + 6);
         }
-        CreatePiece(piece, file, rank);
+        SetPiece(file, rank, piece);
       }
     }
     white_to_move_ = true;
+    white_perspective_ = white_perspective;
   }
 
-  void CreatePiece(Piece piece, char file, int8_t rank) {
-    board_[8 * (rank - 1) + (file - 'a')] = piece;
+  int8_t LogicalToPhysical(char file, char rank) const {
+    return 8 * (rank - '1') + (file - 'a');
+  }
+
+  void SetPiece(char file, char rank, Piece piece) {
+    board_[LogicalToPhysical(file, rank)] = piece;
+  }
+
+  Piece GetPiece(char file, char rank) const {
+    return board_[LogicalToPhysical(file, rank)];
   }
 
   // TODO add a perspective_ field to determine how we print the board
@@ -92,34 +103,38 @@ public:
     // For each rank, print out the rank label on the left, then the squares of
     // that rank, then every eighth move in the move history
     std::string output;
-    for (int8_t rank = 0; rank < 8; ++rank) {
-      output += '1' + rank;
+    for (int row = 0; row < 8; ++row) {
+      char rank = (game.white_perspective_ ? '8' - row : '1' + row);
+      output += rank;
       output += ' ';
       output += kPieceText;
-      for (int8_t file = 0; file < 8; ++file) {
-        output += ((rank + file) % 2 ? kBlackBackground : kWhiteBackground);
-        output += unicode_pieces[game.board_[rank * 8 + file]];
+      for (int col = 0; col < 8; ++col) {
+        // The board is such that top left square is white for both players
+        output += ((row + col) % 2 ? kBlackBackground : kWhiteBackground);
+        char file = (game.white_perspective_ ? 'a' + col : 'h' - col);
+        output += unicode_pieces[game.GetPiece(file, rank)];
         output += ' ';
       }
       output += kResetBackground;
       // Print out every eighth move in the move history offset by rank
       output += kHistoryText;
-      for (size_t move = rank; move < game.history_.size(); move += 8) {
+      for (size_t move = row; move < game.history_.size(); move += 8) {
         output += "  ";
         // Accommodate for move numbers up to 999
-        std::string move_num_str = std::to_string(move + 1);
-        move_num_str.insert(0, 3 - move_num_str.size(), ' ');
-        output += move_num_str;
-        output += ". ";
+        std::string move_str = std::to_string(move + 1);
+        move_str.insert(0, 3 - move_str.size(), ' ');
+        move_str += ". ";
         // TODO Pad to support algebraic notation of different lengths
-        output += game.history_[move];
+        move_str += game.history_[move];
+        output += move_str;
       }
       output += kResetText;
       output += '\n';
     }
     // It remains to print out the file labels on the bottom
     output += "  ";
-    for (char file = 'h'; file >= 'a'; --file) {
+    for (int col = 0; col < 8; ++col) {
+      char file = (game.white_perspective_ ? 'a' + col : 'h' - col);
       output += file;
       output += ' ';
     }
@@ -235,7 +250,7 @@ public:
       break;
     }
     const Piece type = static_cast<Piece>(6 * !white_to_move_ + offset);
-    const Square to = ('h' - move[1]) + 8 * (move[2] - '1');
+    const Square to = LogicalToPhysical(move[1], move[2]);
 
     // Now we look for pieces of that type that can moved to the destination
     std::vector<Square> candidates;
@@ -253,7 +268,7 @@ public:
 };
 
 int main() {
-  Chess game;
+  Chess game = Chess(true);
   std::string input;
   while (true) {
     // Clear the screen and print out the board with history
