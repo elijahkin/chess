@@ -219,20 +219,115 @@ public:
   // These terse function are designed to make the logic of scanning for moves
   // more intuitive. It is common to want to know whether a particular square is
   // occupied
-  bool IsOccupied(int64_t square) { return board_[square] != kNone; }
+  bool IsOccupied(int8_t square) { return board_[square] != kNone; }
 
   // We would also often like to know whether a square is occupied by the
   // opponent
-  bool IsOpponent(int64_t square) {
+  bool IsOpponent(int8_t square) {
     return IsOccupied(square) && (IsWhite(board_[square]) != white_to_move_);
+  }
+
+  // Compute the legal moves for a bishop, rook, or queen on square 'from' can
+  // move to on a chessboard
+  std::vector<int8_t> MovesPattern(int8_t from,
+                                   const std::vector<int8_t> step_sizes,
+                                   bool knight_or_king = false) {
+    std::vector<int8_t> tos;
+    for (auto step_size : step_sizes) {
+      for (int8_t i = 1;; ++i) {
+        int8_t to = from + step_size * i;
+
+        // Calculate the rank and file of the 'from' and 'to' squares
+        int8_t fromRank = from / 8;
+        int8_t fromFile = from % 8;
+        int8_t toRank = to / 8;
+        int8_t toFile = to % 8;
+
+        // Ensure the move is within the board boundaries
+        if (to < 0 || to >= 64) {
+          break;
+        }
+        // Ensure the move does not wrap around the board
+        // For horizontal moves, check if the file changes
+        if ((step_size == -1 || step_size == 1) && toRank != fromRank) {
+          break;
+        }
+        // For vertical moves, check if the rank changes
+        if ((step_size == -8 || step_size == 8) && toFile != fromFile) {
+          break;
+        }
+        // For diagonal moves, check if both rank and file change appropriately
+        if ((abs(step_size) == 7 || abs(step_size) == 9) &&
+            (abs(toRank - fromRank) != i || abs(toFile - fromFile) != i)) {
+          break;
+        }
+
+        // We can move to a square if it is empty or has an opponent
+        if (!IsOccupied(to) || IsOpponent(to)) {
+          tos.push_back(to);
+        }
+        // We can't move through pieces
+        if (IsOccupied(to) || knight_or_king) {
+          break;
+        }
+      }
+    }
+    return tos;
   }
 
   // Compute a vector squares that a particular piece can move to. We use
   // fallthrough here for every piece type except pawns (pawns can only move in
   // one direction depending on color)
   std::vector<int8_t> LegalMoves(int8_t from) {
-    // TODO
-    return {};
+    std::vector<int8_t> tos;
+    switch (board_[from]) {
+    case kNone:
+      break;
+    case kWhiteKing:
+    case kBlackKing:
+      return MovesPattern(from, {-9, -8, -7, -1, 1, 7, 8, 9}, true);
+      break;
+    case kWhiteQueen:
+    case kBlackQueen:
+      return MovesPattern(from, {-9, -8, -7, -1, 1, 7, 8, 9});
+      break;
+    case kWhiteRook:
+    case kBlackRook:
+      return MovesPattern(from, {-8, -1, 1, 8});
+      break;
+    case kWhiteBishop:
+    case kBlackBishop:
+      return MovesPattern(from, {-9, -7, 7, 9});
+      break;
+    case kWhiteKnight:
+    case kBlackKnight:
+      return MovesPattern(from, {-17, -15, -10, -6, 6, 10, 15, 17}, true);
+      break;
+    case kWhitePawn:
+    case kBlackPawn:
+      // TODO Need to rewrite this; pawns are teleporting around the edges of
+      // the board
+      int orientation = ((board_[from] == kWhitePawn) ? 1 : -1);
+      int8_t forward = from + 8 * orientation;
+      if (!IsOccupied(forward)) {
+        tos.push_back(forward);
+      }
+      int8_t double_forward = from + 16 * orientation;
+      if (!IsOccupied(double_forward) && ((from / 8 == 1) || (from / 8 == 6))) {
+        tos.push_back((double_forward));
+      }
+      int8_t left = from + 7 * orientation;
+      if (IsOpponent(left)) {
+        tos.push_back(left);
+      }
+      int8_t right = from + 9 * orientation;
+      if (IsOpponent(right)) {
+        tos.push_back(right);
+      }
+      // TODO
+      break;
+    }
+    return tos;
   }
 
   std::vector<Move> LegalMoves() {
@@ -291,7 +386,10 @@ public:
     for (size_t from = 0; from < board_.size(); ++from) {
       if (board_[from] == type && IsWhite(board_[from]) == white_to_move_) {
         // TODO Is it viable?
-        from_candidates.push_back(from);
+        std::vector<int8_t> tos = LegalMoves(from);
+        if (std::find(tos.begin(), tos.end(), to) != tos.end()) {
+          from_candidates.push_back(from);
+        }
       }
     }
     // The piece to move should now be unambiguous
@@ -325,12 +423,23 @@ int main() {
     system("clear");
     std::cout << game << std::endl;
 
+    // for (auto move : game.LegalMoves()) {
+    //   std::cout << game.ToString(move) << ' ';
+    // }
+    // std::cout << std::endl;
+
     // Allow the user to input a move
     std::cout << "Please enter a move: ";
     // TODO Overload >> instead of having a function?
     std::cin >> input;
-    Chess::Move move = game.ParseAlgebraicNotation(input);
-    game.MakeMakeWithHistory(move);
+    Chess::Move white_move = game.ParseAlgebraicNotation(input);
+    game.MakeMakeWithHistory(white_move);
+
+    system("clear");
+    std::cout << game << std::endl;
+
+    Chess::Move black_move = game.Minimax(5);
+    game.MakeMakeWithHistory(black_move);
   }
   return 0;
 }
