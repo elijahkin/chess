@@ -29,6 +29,9 @@ bool IsWhite(const Piece piece) {
   return (piece >= kWhiteKing && piece <= kWhitePawn);
 }
 
+const std::vector<int> kMaterialValues = {0,   40, 9,  5,  3,  3, 1,
+                                          -40, -9, -5, -3, -3, -1};
+
 class Chess {
 private:
   // In memory, we store the board rank-major such that the squares laid out in
@@ -207,8 +210,6 @@ public:
   // Compute the sum of white's material minus the sum of black's material
   // TODO supply this function based on which player is Minimax
   int MaterialAdvantage() const {
-    const std::vector<int> kMaterialValues = {0,   40, 9,  5,  3,  3, 1,
-                                              -40, -9, -5, -3, -3, -1};
     int material_advantage = 0;
     for (auto piece : board_) {
       material_advantage -= kMaterialValues[piece];
@@ -228,7 +229,8 @@ public:
   }
 
   // Compute the legal moves for a bishop, rook, or queen on square 'from' can
-  // move to on a chessboard
+  // move to on a chessboard. We can also compute the legal moves for a knight
+  // and king by breaking on the first step
   std::vector<int8_t> MovesPattern(int8_t from,
                                    const std::vector<int8_t> step_sizes,
                                    bool knight_or_king = false) {
@@ -278,35 +280,30 @@ public:
   // Compute a vector squares that a particular piece can move to. We use
   // fallthrough here for every piece type except pawns (pawns can only move in
   // one direction depending on color)
-  std::vector<int8_t> LegalMoves(int8_t from) {
-    std::vector<int8_t> tos;
+  const std::vector<int8_t> LegalMoves(int8_t from) {
     switch (board_[from]) {
     case kNone:
-      break;
+      return {};
     case kWhiteKing:
     case kBlackKing:
       return MovesPattern(from, {-9, -8, -7, -1, 1, 7, 8, 9}, true);
-      break;
     case kWhiteQueen:
     case kBlackQueen:
       return MovesPattern(from, {-9, -8, -7, -1, 1, 7, 8, 9});
-      break;
     case kWhiteRook:
     case kBlackRook:
       return MovesPattern(from, {-8, -1, 1, 8});
-      break;
     case kWhiteBishop:
     case kBlackBishop:
       return MovesPattern(from, {-9, -7, 7, 9});
-      break;
     case kWhiteKnight:
     case kBlackKnight:
       return MovesPattern(from, {-17, -15, -10, -6, 6, 10, 15, 17}, true);
-      break;
     case kWhitePawn:
     case kBlackPawn:
       // TODO Need to rewrite this; pawns are teleporting around the edges of
       // the board
+      std::vector<int8_t> tos;
       int orientation = ((board_[from] == kWhitePawn) ? 1 : -1);
       int8_t forward = from + 8 * orientation;
       if (!IsOccupied(forward)) {
@@ -324,18 +321,15 @@ public:
       if (IsOpponent(right)) {
         tos.push_back(right);
       }
-      // TODO
-      break;
+      return tos;
     }
-    return tos;
   }
 
-  std::vector<Move> LegalMoves() {
+  const std::vector<Move> LegalMoves() {
     std::vector<Move> moves;
     for (int8_t from = 0; from < 64; ++from) {
       if (IsWhite(board_[from]) == white_to_move_) {
-        std::vector<int8_t> tos = LegalMoves(from);
-        for (int8_t to : tos) {
+        for (int8_t to : LegalMoves(from)) {
           moves.push_back({from, to});
         }
       }
