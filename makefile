@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -std=c++11 -O2 -Wall -Wextra
+CFLAGS = -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror
 
 all: chess
 
