@@ -1,5 +1,11 @@
+#include <algorithm>
+#include <array>
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
+#include <limits>
+#include <string>
 #include <vector>
 
 // Define color scheme via ANSI escape codes
@@ -18,7 +24,7 @@ const std::vector<std::string> kUnicodePieces = {
 const std::vector<char> kPieceLetters = {'K', 'Q', 'R', 'B', 'N', '\0'};
 
 enum Piece : int8_t {
-  kNone,
+  kEmpty,
   kWhiteKing,
   kWhiteQueen,
   kWhiteRook,
@@ -66,13 +72,11 @@ class Chess {
     // pieces start in ranks 1 and 2
     for (char rank = '1'; rank <= '8'; ++rank) {
       for (char file = 'a'; file <= 'h'; ++file) {
-        Piece piece;
+        Piece piece = kEmpty;
         if (rank == '1' || rank == '8') {
           piece = white_major[file - 'a'];
         } else if (rank == '2' || rank == '7') {
           piece = kWhitePawn;
-        } else {
-          piece = kNone;
         }
         if (rank == '7' || rank == '8') {
           piece = static_cast<Piece>(piece + 6);
@@ -149,7 +153,7 @@ class Chess {
     Piece captured = board_[move.to];
 
     board_[move.to] = board_[move.from];
-    board_[move.from] = kNone;
+    board_[move.from] = kEmpty;
 
     white_to_move_ = !white_to_move_;
     return captured;
@@ -215,7 +219,7 @@ class Chess {
   // These terse function are designed to make the logic of scanning for moves
   // more intuitive. It is common to want to know whether a particular square is
   // occupied
-  bool IsOccupied(int8_t square) const { return board_[square] != kNone; }
+  bool IsOccupied(int8_t square) const { return board_[square] != kEmpty; }
 
   // We would also often like to know whether a square is occupied by the
   // opponent
@@ -235,10 +239,10 @@ class Chess {
         int8_t to = from + step_size * i;
 
         // Calculate the rank and file of the 'from' and 'to' squares
-        int8_t fromRank = from / 8;
-        int8_t fromFile = from % 8;
-        int8_t toRank = to / 8;
-        int8_t toFile = to % 8;
+        int8_t from_rank = from / 8;
+        int8_t from_file = from % 8;
+        int8_t to_rank = to / 8;
+        int8_t to_file = to % 8;
 
         // Ensure the move is within the board boundaries
         if (to < 0 || to >= 64) {
@@ -246,16 +250,16 @@ class Chess {
         }
         // Ensure the move does not wrap around the board
         // For horizontal moves, check if the file changes
-        if ((step_size == -1 || step_size == 1) && toRank != fromRank) {
+        if ((step_size == -1 || step_size == 1) && to_rank != from_rank) {
           break;
         }
         // For vertical moves, check if the rank changes
-        if ((step_size == -8 || step_size == 8) && toFile != fromFile) {
+        if ((step_size == -8 || step_size == 8) && to_file != from_file) {
           break;
         }
         // For diagonal moves, check if both rank and file change appropriately
         if ((abs(step_size) == 7 || abs(step_size) == 9) &&
-            (abs(toRank - fromRank) != i || abs(toFile - fromFile) != i)) {
+            (abs(to_rank - from_rank) != i || abs(to_file - from_file) != i)) {
           break;
         }
 
@@ -277,7 +281,7 @@ class Chess {
   // one direction depending on color)
   std::vector<int8_t> LegalMoves(int8_t from) {
     switch (board_[from]) {
-      case kNone:
+      case kEmpty:
         return {};
       case kWhiteKing:
       case kBlackKing:

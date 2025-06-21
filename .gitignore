@@ -1,4 +1,3 @@
-# Ignore all files except those with extensions
-*
-!*.*
-!LICENSE
+bin/*
+!.gitkeep
+.DS_Store

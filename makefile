@@ -1,7 +1,10 @@
 CC = g++
-CFLAGS = -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror
+CFLAGS = -std=c++23 -O2 -Wall -Wextra -Wpedantic
 
 all: chess
 
-chess: chess.cpp
-	$(CC) $(CFLAGS) -o chess chess.cpp
+chess: src/chess.cpp
+	$(CC) $(CFLAGS) -o bin/chess src/chess.cpp
+
+clean:
+	rm -f bin/*
