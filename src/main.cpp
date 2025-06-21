@@ -9,7 +9,7 @@ int main() {
   while (true) {
     // Clear the screen and print out the board with history
     system("clear");
-    std::cout << game << "\n";
+    std::cout << game.ToString() << "\n";
 
     // for (auto move : game.LegalMoves()) {
     //   std::cout << game.ToString(move) << ' ';
@@ -24,7 +24,7 @@ int main() {
     game.MakeMakeWithHistory(white_move);
 
     system("clear");
-    std::cout << game << "\n";
+    std::cout << game.ToString() << "\n";
 
     Chess::Move black_move = game.Minimax(5);
     game.MakeMakeWithHistory(black_move);

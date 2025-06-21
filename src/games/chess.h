@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <ostream>
 #include <string>
 #include <vector>
 
@@ -47,18 +46,6 @@ const std::vector<int> kMaterialValues = {0,   40, 9,  5,  3,  3, 1,
                                           -40, -9, -5, -3, -3, -1};
 
 class Chess {
- private:
-  // In memory, we store the board rank-major such that the squares laid out in
-  // board_ like so: 1a ... 1h 2a ... 2h ... 7h 8a ... 8h. This makes it easier
-  // to initialize the board in its starting position
-  std::array<Piece, 64> board_;
-  // This boolean keeps track of whose turn it is
-  bool white_to_move_;
-  // We record the algebraic notation of each move in this vector
-  std::vector<std::string> history_;
-  // This field determines from whose perspective we print the board
-  bool white_perspective_;
-
  public:
   Chess(bool white_perspective) {
     // Define the types and order of pieces in white's major rank. The same
@@ -88,6 +75,89 @@ class Chess {
     white_perspective_ = white_perspective;
   }
 
+  struct Move {
+    int8_t from;
+    int8_t to;
+    Piece captured;
+  };
+
+  // Compute the sum of white's material minus the sum of black's material
+  // TODO supply this function based on which player is Minimax
+  double Valuate() const {
+    double material_advantage = 0;
+    for (auto piece : board_) {
+      material_advantage -= kMaterialValues[piece];
+    }
+    return material_advantage;
+  }
+
+  // Perform the move in memory and switch with the other player. We also return
+  // the Piece previously on the square move.to in case we have to revert the
+  // move later (such as during a minimax search)
+  void MakeMove(const Move &move) {
+    board_[move.to] = board_[move.from];
+    board_[move.from] = kEmpty;
+    white_to_move_ = !white_to_move_;
+  }
+
+  void RevertMove(const Move &move) {
+    board_[move.from] = board_[move.to];
+    board_[move.to] = move.captured;
+    white_to_move_ = !white_to_move_;
+  }
+
+  std::vector<Move> GetMoves() const {
+    std::vector<Move> moves;
+    for (int8_t from = 0; from < 64; ++from) {
+      if (IsWhite(board_[from]) == white_to_move_) {
+        for (int8_t to : LegalMoves(from)) {
+          moves.push_back({from, to, board_[to]});
+        }
+      }
+    }
+    return moves;
+  }
+
+  std::string ToString() const {
+    // For each rank, print out the rank label on the left, then the squares of
+    // that rank, then every eighth move in the move history
+    std::string output;
+    for (int row = 0; row < 9; ++row) {
+      char rank = (white_perspective_ ? '8' - row : '1' + row);
+      output += (row == 8 ? ' ' : rank);
+      output += ' ';
+      for (int col = 0; col < 8; ++col) {
+        char file = (white_perspective_ ? 'a' + col : 'h' - col);
+        if (row != 8) {
+          // The board is such that top left square is white for both players
+          output += ((row + col) % 2 ? kBlackBackground : kWhiteBackground);
+          output += kPieceText;
+          output += kUnicodePieces[GetPiece(file, rank)];
+        } else {
+          output += file;
+        }
+        output += ' ';
+      }
+      output += kResetBackground;
+      // Print out every eighth move in the move history offset by rank
+      output += kHistoryText;
+      output += ' ';
+      for (size_t move = row; move < history_.size(); move += 9) {
+        // Accommodate for move numbers up to 999
+        std::string move_str = std::to_string(move + 1);
+        move_str.insert(0, 3 - move_str.size(), ' ');
+        move_str += ". ";
+        // Pad to support algebraic notation of different lengths
+        move_str += history_[move];
+        move_str.insert(move_str.end(), 10 - move_str.size(), ' ');
+        output += move_str;
+      }
+      output += kResetText;
+      output += '\n';
+    }
+    return output;
+  }
+
   int8_t LogicalToPhysical(char file, char rank) const {
     return (8 * (rank - '1')) + (file - 'a');
   }
@@ -100,122 +170,6 @@ class Chess {
     return board_[LogicalToPhysical(file, rank)];
   }
 
-  friend std::ostream &operator<<(std::ostream &stream, const Chess &game) {
-    // For each rank, print out the rank label on the left, then the squares of
-    // that rank, then every eighth move in the move history
-    std::string output;
-    for (int row = 0; row < 9; ++row) {
-      char rank = (game.white_perspective_ ? '8' - row : '1' + row);
-      output += (row == 8 ? ' ' : rank);
-      output += ' ';
-      for (int col = 0; col < 8; ++col) {
-        char file = (game.white_perspective_ ? 'a' + col : 'h' - col);
-        if (row != 8) {
-          // The board is such that top left square is white for both players
-          output += ((row + col) % 2 ? kBlackBackground : kWhiteBackground);
-          output += kPieceText;
-          output += kUnicodePieces[game.GetPiece(file, rank)];
-        } else {
-          output += file;
-        }
-        output += ' ';
-      }
-      output += kResetBackground;
-      // Print out every eighth move in the move history offset by rank
-      output += kHistoryText;
-      output += ' ';
-      for (size_t move = row; move < game.history_.size(); move += 9) {
-        // Accommodate for move numbers up to 999
-        std::string move_str = std::to_string(move + 1);
-        move_str.insert(0, 3 - move_str.size(), ' ');
-        move_str += ". ";
-        // Pad to support algebraic notation of different lengths
-        move_str += game.history_[move];
-        move_str.insert(move_str.end(), 10 - move_str.size(), ' ');
-        output += move_str;
-      }
-      output += kResetText;
-      output += '\n';
-    }
-    stream << output;
-    return stream;
-  }
-
-  struct Move {
-    int8_t from;
-    int8_t to;
-  };
-
-  // Perform the move in memory and switch with the other player. We also return
-  // the Piece previously on the square move.to in case we have to revert the
-  // move later (such as during a minimax search)
-  Piece MakeMove(Move move) {
-    Piece captured = board_[move.to];
-
-    board_[move.to] = board_[move.from];
-    board_[move.from] = kEmpty;
-
-    white_to_move_ = !white_to_move_;
-    return captured;
-  }
-
-  void RevertMove(Move move, Piece captured) {
-    board_[move.from] = board_[move.to];
-    board_[move.to] = captured;
-    white_to_move_ = !white_to_move_;
-  }
-
-  int MinimaxHelper(int8_t max_depth, int8_t depth, Move move) {
-    // Make the move, storing any captured piece
-    Piece captured = MakeMove(move);
-    int value;
-    if (depth < max_depth) {
-      // If we've not yet reached the desired depth, continue recursing,
-      // alternating between selecting the minimizer and maximizer at each level
-      std::vector<int> values;
-      for (auto child : LegalMoves()) {
-        values.push_back(MinimaxHelper(max_depth, depth + 1, child));
-      }
-      // Take the maximum on even depths and the minimum on odd depths
-      if (depth % 2 == 0) {
-        value = *std::max_element(values.begin(), values.end());
-      } else {
-        value = *std::min_element(values.begin(), values.end());
-      }
-    } else {
-      // When we reached the desired depth, compute material advantage
-      value = MaterialAdvantage();
-    }
-    // Revert the move and return its value
-    RevertMove(move, captured);
-    return value;
-  }
-
-  // The shallowest level of the minimax search is separate because we want to
-  // return the move itself instead of its value
-  Move Minimax(int8_t max_depth) {
-    int best_value = std::numeric_limits<int>::min();
-    Move best_move;
-    for (auto move : LegalMoves()) {
-      int value = MinimaxHelper(max_depth, 1, move);
-      if (value > best_value) {
-        best_value = value;
-        best_move = move;
-      }
-    }
-    return best_move;
-  }
-
-  // Compute the sum of white's material minus the sum of black's material
-  // TODO supply this function based on which player is Minimax
-  int MaterialAdvantage() const {
-    int material_advantage = 0;
-    for (auto piece : board_) {
-      material_advantage -= kMaterialValues[piece];
-    }
-    return material_advantage;
-  }
-
   // These terse function are designed to make the logic of scanning for moves
   // more intuitive. It is common to want to know whether a particular square is
   // occupied
@@ -223,8 +177,14 @@ class Chess {
 
   // We would also often like to know whether a square is occupied by the
   // opponent
-  bool IsOpponent(int8_t square) {
+  bool IsOpponent(int8_t square) const {
     return IsOccupied(square) && (IsWhite(board_[square]) != white_to_move_);
+  }
+
+  // Log the move to history_ to be printed with the board
+  void MakeMakeWithHistory(Move move) {
+    history_.push_back(ToString(move));
+    MakeMove(move);
   }
 
   // Compute the legal moves for a bishop, rook, or queen on square 'from' can
@@ -232,7 +192,7 @@ class Chess {
   // and king by breaking on the first step
   std::vector<int8_t> MovesPattern(int8_t from,
                                    const std::vector<int8_t> step_sizes,
-                                   bool knight_or_king = false) {
+                                   bool knight_or_king = false) const {
     std::vector<int8_t> tos;
     for (auto step_size : step_sizes) {
       for (int8_t i = 1;; ++i) {
@@ -279,7 +239,7 @@ class Chess {
   // Compute a vector squares that a particular piece can move to. We use
   // fallthrough here for every piece type except pawns (pawns can only move in
   // one direction depending on color)
-  std::vector<int8_t> LegalMoves(int8_t from) {
+  std::vector<int8_t> LegalMoves(int8_t from) const {
     switch (board_[from]) {
       case kEmpty:
         return {};
@@ -325,19 +285,20 @@ class Chess {
     }
   }
 
-  std::vector<Move> LegalMoves() {
-    std::vector<Move> moves;
-    for (int8_t from = 0; from < 64; ++from) {
-      if (IsWhite(board_[from]) == white_to_move_) {
-        for (int8_t to : LegalMoves(from)) {
-          moves.push_back({from, to});
-        }
-      }
-    }
-    return moves;
+  // Note that this function relies on the move not yet being made to retrieve
+  // the piece type
+  // TODO Should this be inside `Move`?
+  std::string ToString(Move move) const {
+    std::string output;
+    output += kPieceLetters[(board_[move.from] - 1) % 6];
+    output += (move.to % 8) + 'a';
+    output += std::to_string(1 + (move.to / 8));
+    return output;
   }
 
-  Move ParseAlgebraicNotation(std::string move) {
+  // TODO Should this be inside `Move`?
+  // TODO This should return std::optional<Move> and avoid asserts
+  Move ParseAlgebraicNotation(std::string move) const {
     // If the first letter is lowercase, this is a pawn move; We should insert
     // an extra character at the beginning
     if (std::islower(move[0])) {
@@ -388,22 +349,57 @@ class Chess {
     }
     // The piece to move should now be unambiguous
     assert(from_candidates.size() == 1);
-    return {from_candidates[0], to};
+    return {from_candidates[0], to, board_[to]};
   }
 
-  // Note that this function relies on the move not yet being made to retrieve
-  // the piece type
-  std::string ToString(Chess::Move move) {
-    std::string output;
-    output += kPieceLetters[(board_[move.from] - 1) % 6];
-    output += (move.to % 8) + 'a';
-    output += std::to_string(1 + (move.to / 8));
-    return output;
-  }
-
-  // Log the move to history_ to be printed with the board
-  void MakeMakeWithHistory(Move move) {
-    history_.push_back(ToString(move));
+  int MinimaxHelper(int8_t max_depth, int8_t depth, Move move) {
     MakeMove(move);
+    int value;
+    if (depth < max_depth) {
+      // If we've not yet reached the desired depth, continue recursing,
+      // alternating between selecting the minimizer and maximizer at each level
+      std::vector<int> values;
+      for (auto child : GetMoves()) {
+        values.push_back(MinimaxHelper(max_depth, depth + 1, child));
+      }
+      // Take the maximum on even depths and the minimum on odd depths
+      if (depth % 2 == 0) {
+        value = *std::max_element(values.begin(), values.end());
+      } else {
+        value = *std::min_element(values.begin(), values.end());
+      }
+    } else {
+      // When we reached the desired depth, compute material advantage
+      value = Valuate();
+    }
+    RevertMove(move);
+    return value;
   }
+
+  // The shallowest level of the minimax search is separate because we want to
+  // return the move itself instead of its value
+  Move Minimax(int8_t max_depth) {
+    int best_value = std::numeric_limits<int>::min();
+    Move best_move;
+    for (auto move : GetMoves()) {
+      int value = MinimaxHelper(max_depth, 1, move);
+      if (value > best_value) {
+        best_value = value;
+        best_move = move;
+      }
+    }
+    return best_move;
+  }
+
+ private:
+  // In memory, we store the board rank-major such that the squares laid out in
+  // board_ like so: 1a ... 1h 2a ... 2h ... 7h 8a ... 8h. This makes it easier
+  // to initialize the board in its starting position
+  std::array<Piece, 64> board_;
+  // This boolean keeps track of whose turn it is
+  bool white_to_move_;
+  // We record the algebraic notation of each move in this vector
+  std::vector<std::string> history_;
+  // This field determines from whose perspective we print the board
+  bool white_perspective_;
 };
