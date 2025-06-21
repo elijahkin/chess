@@ -32,7 +32,7 @@ int main() {
     std::cout << game.ToString() << "\n";
 
     std::cout << "Minimax agent is thinking...\n";
-    Chess::Move black_move = game.Minimax(5);
+    ChessMove black_move = game.Minimax(5);
     game.MakeMakeWithHistory(black_move);
   }
   return 0;

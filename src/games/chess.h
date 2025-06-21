@@ -3,10 +3,11 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdlib>
-#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
+
+#include "../base.h"
 
 // Define color scheme via ANSI escape codes
 const std::string kPieceText = "\33[30m";
@@ -15,13 +16,6 @@ const std::string kResetText = "\33[39m";
 const std::string kWhiteBackground = "\33[47m";
 const std::string kBlackBackground = "\33[45m";
 const std::string kResetBackground = "\33[49m";
-
-// https://en.wikipedia.org/wiki/Chess_symbols_in_Unicode
-const std::vector<std::string> kUnicodePieces = {
-    " ",      "\u2654", "\u2655", "\u2656", "\u2657", "\u2658", "\u2659",
-    "\u265a", "\u265b", "\u265c", "\u265d", "\u265e", "\u265f"};
-
-const std::vector<char> kPieceLetters = {'K', 'Q', 'R', 'B', 'N', '\0'};
 
 enum Piece : int8_t {
   kEmpty,
@@ -39,14 +33,27 @@ enum Piece : int8_t {
   kBlackPawn
 };
 
-bool IsWhite(const Piece piece) {
-  return (piece >= kWhiteKing && piece <= kWhitePawn);
-}
+// https://en.wikipedia.org/wiki/Chess_symbols_in_Unicode
+const std::vector<std::string> kUnicodePieces = {
+    " ",      "\u2654", "\u2655", "\u2656", "\u2657", "\u2658", "\u2659",
+    "\u265a", "\u265b", "\u265c", "\u265d", "\u265e", "\u265f"};
+
+const std::vector<char> kPieceLetters = {'K', 'Q', 'R', 'B', 'N', '\0'};
 
 const std::vector<int> kMaterialValues = {0,   40, 9,  5,  3,  3, 1,
                                           -40, -9, -5, -3, -3, -1};
 
-class Chess {
+bool IsWhite(const Piece piece) {
+  return (piece >= kWhiteKing && piece <= kWhitePawn);
+}
+
+struct ChessMove {
+  int8_t from;
+  int8_t to;
+  Piece captured;
+};
+
+class Chess : public Game<ChessMove> {
  public:
   explicit Chess(bool white_perspective) {
     // Define the types and order of pieces in white's major rank. The same
@@ -76,15 +83,9 @@ class Chess {
     white_perspective_ = white_perspective;
   }
 
-  struct Move {
-    int8_t from;
-    int8_t to;
-    Piece captured;
-  };
-
   // Compute the sum of white's material minus the sum of black's material
   // TODO supply this function based on which player is Minimax
-  [[nodiscard]] double Valuate() const {
+  [[nodiscard]] double Valuate() const override {
     double material_advantage = 0;
     for (auto piece : board_) {
       material_advantage -= kMaterialValues[piece];
@@ -95,20 +96,20 @@ class Chess {
   // Perform the move in memory and switch with the other player. We also return
   // the Piece previously on the square move.to in case we have to revert the
   // move later (such as during a minimax search)
-  void MakeMove(const Move &move) {
+  void MakeMove(const ChessMove &move) override {
     board_[move.to] = board_[move.from];
     board_[move.from] = kEmpty;
     white_to_move_ = !white_to_move_;
   }
 
-  void RevertMove(const Move &move) {
+  void RevertMove(const ChessMove &move) override {
     board_[move.from] = board_[move.to];
     board_[move.to] = move.captured;
     white_to_move_ = !white_to_move_;
   }
 
-  [[nodiscard]] std::vector<Move> GetMoves() const {
-    std::vector<Move> moves;
+  [[nodiscard]] std::vector<ChessMove> GetMoves() const override {
+    std::vector<ChessMove> moves;
     for (int8_t from = 0; from < 64; ++from) {
       if (IsWhite(board_[from]) == white_to_move_) {
         for (int8_t to : LegalMoves(from)) {
@@ -119,7 +120,7 @@ class Chess {
     return moves;
   }
 
-  [[nodiscard]] std::string ToString() const {
+  [[nodiscard]] std::string ToString() const override {
     // For each rank, print out the rank label on the left, then the squares of
     // that rank, then every eighth move in the move history
     std::string output;
@@ -185,7 +186,7 @@ class Chess {
   }
 
   // Log the move to history_ to be printed with the board
-  void MakeMakeWithHistory(Move move) {
+  void MakeMakeWithHistory(ChessMove move) {
     history_.push_back(ToString(move));
     MakeMove(move);
   }
@@ -291,7 +292,7 @@ class Chess {
   // Note that this function relies on the move not yet being made to retrieve
   // the piece type
   // TODO Should this be inside `Move`?
-  [[nodiscard]] std::string ToString(Move move) const {
+  [[nodiscard]] std::string ToString(ChessMove move) const {
     std::string output;
     output += kPieceLetters[(board_[move.from] - 1) % 6];
     output += (move.to % 8) + 'a';
@@ -300,7 +301,7 @@ class Chess {
   }
 
   // TODO Should this be inside `Move`?
-  [[nodiscard]] std::optional<Move> ParseAlgebraicNotation(
+  [[nodiscard]] std::optional<ChessMove> ParseAlgebraicNotation(
       std::string move) const {
     // If the first letter is lowercase, this is a pawn move; We should insert
     // an extra character at the beginning
@@ -360,47 +361,8 @@ class Chess {
     if (from_candidates.size() != 1) {
       return std::nullopt;
     }
-    return std::optional<Move>(
-        Move{.from = from_candidates[0], .to = to, .captured = board_[to]});
-  }
-
-  double MinimaxHelper(int8_t max_depth, int8_t depth, Move move) {
-    MakeMove(move);
-    double value;
-    if (depth < max_depth) {
-      // If we've not yet reached the desired depth, continue recursing,
-      // alternating between selecting the minimizer and maximizer at each level
-      std::vector<double> values;
-      for (auto child : GetMoves()) {
-        values.push_back(MinimaxHelper(max_depth, depth + 1, child));
-      }
-      // Take the maximum on even depths and the minimum on odd depths
-      if (depth % 2 == 0) {
-        value = *std::ranges::max_element(values);
-      } else {
-        value = *std::ranges::min_element(values);
-      }
-    } else {
-      // When we reached the desired depth, compute material advantage
-      value = Valuate();
-    }
-    RevertMove(move);
-    return value;
-  }
-
-  // The shallowest level of the minimax search is separate because we want to
-  // return the move itself instead of its value
-  Move Minimax(int8_t max_depth) {
-    double best_value = std::numeric_limits<double>::min();
-    Move best_move;
-    for (auto move : GetMoves()) {
-      double value = MinimaxHelper(max_depth, 1, move);
-      if (value > best_value) {
-        best_value = value;
-        best_move = move;
-      }
-    }
-    return best_move;
+    return std::optional<ChessMove>(ChessMove{
+        .from = from_candidates[0], .to = to, .captured = board_[to]});
   }
 
  private:
