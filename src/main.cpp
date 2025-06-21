@@ -1,26 +1,23 @@
-#include <cstdlib>
 #include <iostream>
 #include <string>
 
 #include "games/chess.h"
 
+const std::string kClearTerminal = "\033[2J";
+const std::string kCursorTopLeft = "\033[1;1H";
+
 int main() {
-  Chess game = Chess(true);
-  std::string input;
+  Chess game = Chess(/*white_perspective=*/true);
+
   while (true) {
-    // Clear the screen and print out the board with history
-    system("clear");
+    // Human player
+    std::cout << kClearTerminal << kCursorTopLeft;
     std::cout << game.ToString() << "\n";
 
-    // for (auto move : game.GetMoves()) {
-    //   std::cout << game.ToString(move) << ' ';
-    // }
-    // std::cout << std::endl;
-
     // Loop until the user enters a valid move
+    std::string input;
     while (true) {
       std::cout << "Please enter a move: ";
-      // TODO Overload >> instead of having a function?
       std::cin >> input;
       auto parsed = game.ParseAlgebraicNotation(input);
       if (parsed.has_value()) {
@@ -30,7 +27,8 @@ int main() {
       std::cout << "Invalid entry! ";
     }
 
-    system("clear");
+    // Minimax agent player
+    std::cout << kClearTerminal << kCursorTopLeft;
     std::cout << game.ToString() << "\n";
 
     std::cout << "Minimax agent is thinking...\n";

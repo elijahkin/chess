@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
-#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
@@ -200,7 +199,7 @@ class Chess {
     std::vector<int8_t> tos;
     for (auto step_size : step_sizes) {
       for (int8_t i = 1;; ++i) {
-        int8_t to = from + step_size * i;
+        int8_t to = from + (step_size * i);
 
         // Calculate the rank and file of the 'from' and 'to' squares
         int8_t from_rank = from / 8;
