@@ -11,17 +11,24 @@ int main() {
     system("clear");
     std::cout << game.ToString() << "\n";
 
-    // for (auto move : game.LegalMoves()) {
+    // for (auto move : game.GetMoves()) {
     //   std::cout << game.ToString(move) << ' ';
     // }
     // std::cout << std::endl;
 
-    // Allow the user to input a move
-    std::cout << "Please enter a move: ";
-    // TODO Overload >> instead of having a function?
-    std::cin >> input;
-    Chess::Move white_move = game.ParseAlgebraicNotation(input);
-    game.MakeMakeWithHistory(white_move);
+    // Loop until the user enters a valid move
+    while (true) {
+      std::cout << "Please enter a move: ";
+      // TODO Overload >> instead of having a function?
+      std::cin >> input;
+      auto parsed = game.ParseAlgebraicNotation(input);
+      if (parsed.has_value()) {
+        game.MakeMakeWithHistory(parsed.value());
+        break;
+      } else {
+        std::cout << "Invalid entry! ";
+      }
+    }
 
     system("clear");
     std::cout << game.ToString() << "\n";

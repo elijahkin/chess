@@ -1,9 +1,9 @@
 #include <algorithm>
 #include <array>
-#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -297,8 +297,7 @@ class Chess {
   }
 
   // TODO Should this be inside `Move`?
-  // TODO This should return std::optional<Move> and avoid asserts
-  Move ParseAlgebraicNotation(std::string move) const {
+  std::optional<Move> ParseAlgebraicNotation(std::string move) const {
     // If the first letter is lowercase, this is a pawn move; We should insert
     // an extra character at the beginning
     if (std::islower(move[0])) {
@@ -307,8 +306,14 @@ class Chess {
 
     // TODO Strip out x for capture or e.p. for en passant.
     // TODO Also handle special case of castling
-    assert('a' <= move[1] && move[1] <= 'h');
-    assert('1' <= move[2] && move[2] <= '8');
+
+    // The string should refer to a valid square on the board
+    if ((move[1] < 'a') || (move[1] > 'h')) {
+      return std::nullopt;
+    }
+    if ((move[2] < '1') || (move[2] > '8')) {
+      return std::nullopt;
+    }
 
     // https://en.wikipedia.org/wiki/Algebraic_notation_(chess)
     // We read off the type of the piece being moved and its destination
@@ -347,9 +352,12 @@ class Chess {
         }
       }
     }
-    // The piece to move should now be unambiguous
-    assert(from_candidates.size() == 1);
-    return {from_candidates[0], to, board_[to]};
+    // The piece to move should be unambiguous
+    if (from_candidates.size() != 1) {
+      return std::nullopt;
+    }
+    return std::optional<Move>(
+        Move{.from = from_candidates[0], .to = to, .captured = board_[to]});
   }
 
   int MinimaxHelper(int8_t max_depth, int8_t depth, Move move) {
