@@ -1,7 +1,9 @@
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <limits>
 #include <optional>
 #include <string>
@@ -47,7 +49,7 @@ const std::vector<int> kMaterialValues = {0,   40, 9,  5,  3,  3, 1,
 
 class Chess {
  public:
-  Chess(bool white_perspective) {
+  explicit Chess(bool white_perspective) {
     // Define the types and order of pieces in white's major rank. The same
     // order is copied for black's major rank
     const std::vector<Piece> white_major = {
@@ -83,7 +85,7 @@ class Chess {
 
   // Compute the sum of white's material minus the sum of black's material
   // TODO supply this function based on which player is Minimax
-  double Valuate() const {
+  [[nodiscard]] double Valuate() const {
     double material_advantage = 0;
     for (auto piece : board_) {
       material_advantage -= kMaterialValues[piece];
@@ -106,7 +108,7 @@ class Chess {
     white_to_move_ = !white_to_move_;
   }
 
-  std::vector<Move> GetMoves() const {
+  [[nodiscard]] std::vector<Move> GetMoves() const {
     std::vector<Move> moves;
     for (int8_t from = 0; from < 64; ++from) {
       if (IsWhite(board_[from]) == white_to_move_) {
@@ -118,7 +120,7 @@ class Chess {
     return moves;
   }
 
-  std::string ToString() const {
+  [[nodiscard]] std::string ToString() const {
     // For each rank, print out the rank label on the left, then the squares of
     // that rank, then every eighth move in the move history
     std::string output;
@@ -158,7 +160,7 @@ class Chess {
     return output;
   }
 
-  int8_t LogicalToPhysical(char file, char rank) const {
+  [[nodiscard]] int8_t LogicalToPhysical(char file, char rank) const {
     return (8 * (rank - '1')) + (file - 'a');
   }
 
@@ -166,18 +168,20 @@ class Chess {
     board_[LogicalToPhysical(file, rank)] = piece;
   }
 
-  Piece GetPiece(char file, char rank) const {
+  [[nodiscard]] Piece GetPiece(char file, char rank) const {
     return board_[LogicalToPhysical(file, rank)];
   }
 
   // These terse function are designed to make the logic of scanning for moves
   // more intuitive. It is common to want to know whether a particular square is
   // occupied
-  bool IsOccupied(int8_t square) const { return board_[square] != kEmpty; }
+  [[nodiscard]] bool IsOccupied(int8_t square) const {
+    return board_[square] != kEmpty;
+  }
 
   // We would also often like to know whether a square is occupied by the
   // opponent
-  bool IsOpponent(int8_t square) const {
+  [[nodiscard]] bool IsOpponent(int8_t square) const {
     return IsOccupied(square) && (IsWhite(board_[square]) != white_to_move_);
   }
 
@@ -190,9 +194,9 @@ class Chess {
   // Compute the legal moves for a bishop, rook, or queen on square 'from' can
   // move to on a chessboard. We can also compute the legal moves for a knight
   // and king by breaking on the first step
-  std::vector<int8_t> MovesPattern(int8_t from,
-                                   const std::vector<int8_t> step_sizes,
-                                   bool knight_or_king = false) const {
+  [[nodiscard]] std::vector<int8_t> MovesPattern(
+      int8_t from, const std::vector<int8_t> step_sizes,
+      bool knight_or_king = false) const {
     std::vector<int8_t> tos;
     for (auto step_size : step_sizes) {
       for (int8_t i = 1;; ++i) {
@@ -239,7 +243,7 @@ class Chess {
   // Compute a vector squares that a particular piece can move to. We use
   // fallthrough here for every piece type except pawns (pawns can only move in
   // one direction depending on color)
-  std::vector<int8_t> LegalMoves(int8_t from) const {
+  [[nodiscard]] std::vector<int8_t> LegalMoves(int8_t from) const {
     switch (board_[from]) {
       case kEmpty:
         return {};
@@ -288,7 +292,7 @@ class Chess {
   // Note that this function relies on the move not yet being made to retrieve
   // the piece type
   // TODO Should this be inside `Move`?
-  std::string ToString(Move move) const {
+  [[nodiscard]] std::string ToString(Move move) const {
     std::string output;
     output += kPieceLetters[(board_[move.from] - 1) % 6];
     output += (move.to % 8) + 'a';
@@ -297,7 +301,8 @@ class Chess {
   }
 
   // TODO Should this be inside `Move`?
-  std::optional<Move> ParseAlgebraicNotation(std::string move) const {
+  [[nodiscard]] std::optional<Move> ParseAlgebraicNotation(
+      std::string move) const {
     // If the first letter is lowercase, this is a pawn move; We should insert
     // an extra character at the beginning
     if (std::islower(move[0])) {
@@ -360,21 +365,21 @@ class Chess {
         Move{.from = from_candidates[0], .to = to, .captured = board_[to]});
   }
 
-  int MinimaxHelper(int8_t max_depth, int8_t depth, Move move) {
+  double MinimaxHelper(int8_t max_depth, int8_t depth, Move move) {
     MakeMove(move);
-    int value;
+    double value;
     if (depth < max_depth) {
       // If we've not yet reached the desired depth, continue recursing,
       // alternating between selecting the minimizer and maximizer at each level
-      std::vector<int> values;
+      std::vector<double> values;
       for (auto child : GetMoves()) {
         values.push_back(MinimaxHelper(max_depth, depth + 1, child));
       }
       // Take the maximum on even depths and the minimum on odd depths
       if (depth % 2 == 0) {
-        value = *std::max_element(values.begin(), values.end());
+        value = *std::ranges::max_element(values);
       } else {
-        value = *std::min_element(values.begin(), values.end());
+        value = *std::ranges::min_element(values);
       }
     } else {
       // When we reached the desired depth, compute material advantage
@@ -387,10 +392,10 @@ class Chess {
   // The shallowest level of the minimax search is separate because we want to
   // return the move itself instead of its value
   Move Minimax(int8_t max_depth) {
-    int best_value = std::numeric_limits<int>::min();
+    double best_value = std::numeric_limits<double>::min();
     Move best_move;
     for (auto move : GetMoves()) {
-      int value = MinimaxHelper(max_depth, 1, move);
+      double value = MinimaxHelper(max_depth, 1, move);
       if (value > best_value) {
         best_value = value;
         best_move = move;

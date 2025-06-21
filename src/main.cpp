@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <iostream>
 #include <string>
 
@@ -25,14 +26,14 @@ int main() {
       if (parsed.has_value()) {
         game.MakeMakeWithHistory(parsed.value());
         break;
-      } else {
-        std::cout << "Invalid entry! ";
       }
+      std::cout << "Invalid entry! ";
     }
 
     system("clear");
     std::cout << game.ToString() << "\n";
 
+    std::cout << "Minimax agent is thinking...\n";
     Chess::Move black_move = game.Minimax(5);
     game.MakeMakeWithHistory(black_move);
   }
