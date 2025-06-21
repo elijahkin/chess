@@ -8,21 +8,20 @@ static const double kInf = std::numeric_limits<double>::infinity();
 static const double kNegInf = -std::numeric_limits<double>::infinity();
 
 // Implements the minimax algorithm for abstract two-player adversarial games.
-// TODO Make this inherit from an abstract `Agent` class?
 template <typename Move>
-class MinimaxAgent {
+class MinimaxAgent : public Agent<Move> {
  public:
   explicit MinimaxAgent(int max_plies) : max_plies_(max_plies) {}
 
   // The shallowest level of the minimax search is separate because we want to
   // return the move itself instead of its value
   // TODO Consider using iterative deepening instead
-  Move select_move(Game<Move> &state) {
+  Move SelectMove(Game<Move> &state) override {
     double best_value = kNegInf;
     std::vector<Move> best_moves;
 
     for (const auto &move : state.GetMoves()) {
-      const double value = alphabeta(state, move, 1, kNegInf, kInf);
+      const double value = AlphaBeta(state, move, 1, kNegInf, kInf);
       if (value > best_value) {
         best_moves.clear();
         best_moves.push_back(move);
@@ -42,7 +41,7 @@ class MinimaxAgent {
   // A helper function for performing the minimax algorithm with alpha-beta
   // pruning, taking heavy inspiration from
   // https://en.wikipedia.org/wiki/Alpha%E2%80%93beta_pruning#Pseudocode
-  double alphabeta(Game<Move> &state, const Move &move, int ply, double alpha,
+  double AlphaBeta(Game<Move> &state, const Move &move, int ply, double alpha,
                    double beta) {
     state.MakeMove(move);
 
@@ -57,7 +56,7 @@ class MinimaxAgent {
     if (ply % 2 == 0) {  // Maximizing player
       value = kNegInf;
       for (const auto &move : state.GetMoves()) {
-        value = std::max(value, alphabeta(state, move, ply + 1, alpha, beta));
+        value = std::max(value, AlphaBeta(state, move, ply + 1, alpha, beta));
         if (value >= beta) {
           break;
         }
@@ -66,7 +65,7 @@ class MinimaxAgent {
     } else {  // Minimizing player
       value = kInf;
       for (const auto &move : state.GetMoves()) {
-        value = std::min(value, alphabeta(state, move, ply + 1, alpha, beta));
+        value = std::min(value, AlphaBeta(state, move, ply + 1, alpha, beta));
         if (value <= alpha) {
           break;
         }

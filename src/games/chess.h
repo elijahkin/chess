@@ -160,6 +160,71 @@ class Chess : public Game<ChessMove> {
     return output;
   }
 
+  // Parse user-input algebraic chess notation
+  [[nodiscard]] std::optional<ChessMove> Parse(
+      std::string move) const override {
+    // If the first letter is lowercase, this is a pawn move; We should insert
+    // an extra character at the beginning
+    if (std::islower(move[0])) {
+      move.insert(0, " ");
+    }
+
+    // TODO Strip out x for capture or e.p. for en passant.
+    // TODO Also handle special case of castling
+
+    // The string should refer to a valid square on the board
+    if ((move[1] < 'a') || (move[1] > 'h')) {
+      return std::nullopt;
+    }
+    if ((move[2] < '1') || (move[2] > '8')) {
+      return std::nullopt;
+    }
+
+    // https://en.wikipedia.org/wiki/Algebraic_notation_(chess)
+    // We read off the type of the piece being moved and its destination
+    int8_t offset;
+    switch (move[0]) {
+      case 'K':
+        offset = 1;
+        break;
+      case 'Q':
+        offset = 2;
+        break;
+      case 'R':
+        offset = 3;
+        break;
+      case 'B':
+        offset = 4;
+        break;
+      case 'N':
+        offset = 5;
+        break;
+      default:
+        offset = 6;
+        break;
+    }
+    const Piece type = static_cast<Piece>((6 * !white_to_move_) + offset);
+    const int8_t to = LogicalToPhysical(move[1], move[2]);
+
+    // Now we look for pieces of that type that can moved to the destination
+    std::vector<int8_t> from_candidates;
+    for (size_t from = 0; from < board_.size(); ++from) {
+      if (board_[from] == type && IsWhite(board_[from]) == white_to_move_) {
+        // TODO Is it viable?
+        std::vector<int8_t> tos = LegalMoves(from);
+        if (std::find(tos.begin(), tos.end(), to) != tos.end()) {
+          from_candidates.push_back(from);
+        }
+      }
+    }
+    // The piece to move should be unambiguous
+    if (from_candidates.size() != 1) {
+      return std::nullopt;
+    }
+    return std::optional<ChessMove>(ChessMove{
+        .from = from_candidates[0], .to = to, .captured = board_[to]});
+  }
+
   [[nodiscard]] int8_t LogicalToPhysical(char file, char rank) const {
     return (8 * (rank - '1')) + (file - 'a');
   }
@@ -291,78 +356,12 @@ class Chess : public Game<ChessMove> {
 
   // Note that this function relies on the move not yet being made to retrieve
   // the piece type
-  // TODO Should this be inside `Move`?
   [[nodiscard]] std::string ToString(ChessMove move) const {
     std::string output;
     output += kPieceLetters[(board_[move.from] - 1) % 6];
     output += (move.to % 8) + 'a';
     output += std::to_string(1 + (move.to / 8));
     return output;
-  }
-
-  // TODO Should this be inside `Move`?
-  [[nodiscard]] std::optional<ChessMove> ParseAlgebraicNotation(
-      std::string move) const {
-    // If the first letter is lowercase, this is a pawn move; We should insert
-    // an extra character at the beginning
-    if (std::islower(move[0])) {
-      move.insert(0, " ");
-    }
-
-    // TODO Strip out x for capture or e.p. for en passant.
-    // TODO Also handle special case of castling
-
-    // The string should refer to a valid square on the board
-    if ((move[1] < 'a') || (move[1] > 'h')) {
-      return std::nullopt;
-    }
-    if ((move[2] < '1') || (move[2] > '8')) {
-      return std::nullopt;
-    }
-
-    // https://en.wikipedia.org/wiki/Algebraic_notation_(chess)
-    // We read off the type of the piece being moved and its destination
-    int8_t offset;
-    switch (move[0]) {
-      case 'K':
-        offset = 1;
-        break;
-      case 'Q':
-        offset = 2;
-        break;
-      case 'R':
-        offset = 3;
-        break;
-      case 'B':
-        offset = 4;
-        break;
-      case 'N':
-        offset = 5;
-        break;
-      default:
-        offset = 6;
-        break;
-    }
-    const Piece type = static_cast<Piece>((6 * !white_to_move_) + offset);
-    const int8_t to = LogicalToPhysical(move[1], move[2]);
-
-    // Now we look for pieces of that type that can moved to the destination
-    std::vector<int8_t> from_candidates;
-    for (size_t from = 0; from < board_.size(); ++from) {
-      if (board_[from] == type && IsWhite(board_[from]) == white_to_move_) {
-        // TODO Is it viable?
-        std::vector<int8_t> tos = LegalMoves(from);
-        if (std::find(tos.begin(), tos.end(), to) != tos.end()) {
-          from_candidates.push_back(from);
-        }
-      }
-    }
-    // The piece to move should be unambiguous
-    if (from_candidates.size() != 1) {
-      return std::nullopt;
-    }
-    return std::optional<ChessMove>(ChessMove{
-        .from = from_candidates[0], .to = to, .captured = board_[to]});
   }
 
  private:

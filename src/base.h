@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -16,4 +17,13 @@ class Game {
   [[nodiscard]] virtual std::vector<Move> GetMoves() const = 0;
 
   [[nodiscard]] virtual std::string ToString() const = 0;
+
+  [[nodiscard]] virtual std::optional<Move> Parse(std::string move) const = 0;
+};
+
+// Inherit from this class to implement differet agents
+template <typename Move>
+class Agent {
+ public:
+  [[nodiscard]] virtual Move SelectMove(Game<Move> &state) = 0;
 };
