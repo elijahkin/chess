@@ -151,7 +151,7 @@ class Chess : public Game<ChessMove> {
         move_str += ". ";
         // Pad to support algebraic notation of different lengths
         move_str += history_[move];
-        move_str.insert(move_str.end(), 10 - move_str.size(), ' ');
+        move_str.insert(move_str.end(), 14 - move_str.size(), ' ');
         output += move_str;
       }
       output += kResetText;
@@ -250,45 +250,53 @@ class Chess : public Game<ChessMove> {
     return IsOccupied(square) && (IsWhite(board_[square]) != white_to_move_);
   }
 
-  // Log the move to history_ to be printed with the board
-  void MakeMakeWithHistory(ChessMove move) {
-    history_.push_back(ToString(move));
-    MakeMove(move);
+  // Log the move to `history_` to be printed with the board
+  void RecordMove(const ChessMove &move) {
+    if (white_to_move_) {
+      history_.push_back(ToString(move));
+    } else {
+      std::string &tmp = history_.back();
+      tmp.insert(tmp.length(), " ");
+      tmp.insert(tmp.length(), ToString(move));
+    }
   }
 
-  // Compute the legal moves for a bishop, rook, or queen on square 'from' can
+  // Compute the legal moves for a bishop, rook, or queen on square `from` can
   // move to on a chessboard. We can also compute the legal moves for a knight
   // and king by breaking on the first step
   [[nodiscard]] std::vector<int8_t> MovesPattern(
       int8_t from, const std::vector<int8_t> step_sizes,
       bool knight_or_king = false) const {
+    // Calculate the rank and file of the `from` square
+    const int8_t from_rank = from / 8;
+    const int8_t from_file = from % 8;
+
     std::vector<int8_t> tos;
     for (auto step_size : step_sizes) {
       for (int8_t i = 1;; ++i) {
         int8_t to = from + (step_size * i);
 
-        // Calculate the rank and file of the 'from' and 'to' squares
-        int8_t from_rank = from / 8;
-        int8_t from_file = from % 8;
-        int8_t to_rank = to / 8;
-        int8_t to_file = to % 8;
-
         // Ensure the move is within the board boundaries
         if (to < 0 || to >= 64) {
           break;
         }
+
+        // Calculate the rank and file of the `to` square
+        const int8_t to_rank = to / 8;
+        const int8_t to_file = to % 8;
+
         // Ensure the move does not wrap around the board
-        // For horizontal moves, check if the file changes
-        if ((step_size == -1 || step_size == 1) && to_rank != from_rank) {
+        if (abs(step_size) == 1 && to_rank != from_rank) {
+          // For horizontal moves, check if the file changes
           break;
         }
-        // For vertical moves, check if the rank changes
-        if ((step_size == -8 || step_size == 8) && to_file != from_file) {
+        if (abs(step_size) == 8 && to_file != from_file) {
+          // For vertical moves, check if the rank changes
           break;
         }
-        // For diagonal moves, check if both rank and file change appropriately
         if ((abs(step_size) == 7 || abs(step_size) == 9) &&
             (abs(to_rank - from_rank) != i || abs(to_file - from_file) != i)) {
+          // For diagonal moves, check if rank and file change equally
           break;
         }
 
@@ -356,7 +364,7 @@ class Chess : public Game<ChessMove> {
 
   // Note that this function relies on the move not yet being made to retrieve
   // the piece type
-  [[nodiscard]] std::string ToString(ChessMove move) const {
+  [[nodiscard]] std::string ToString(const ChessMove &move) const {
     std::string output;
     output += kPieceLetters[(board_[move.from] - 1) % 6];
     output += (move.to % 8) + 'a';
