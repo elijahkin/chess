@@ -43,10 +43,6 @@ const std::vector<char> kPieceLetters = {'K', 'Q', 'R', 'B', 'N', '\0'};
 const std::vector<int> kMaterialValues = {0,   40, 9,  5,  3,  3, 1,
                                           -40, -9, -5, -3, -3, -1};
 
-bool IsWhite(const Piece piece) {
-  return (piece >= kWhiteKing && piece <= kWhitePawn);
-}
-
 struct ChessMove {
   int8_t from;
   int8_t to;
@@ -132,7 +128,8 @@ class Chess : public Game<ChessMove> {
         char file = (white_perspective_ ? 'a' + col : 'h' - col);
         if (row != 8) {
           // The board is such that top left square is white for both players
-          output += ((row + col) % 2 ? kBlackBackground : kWhiteBackground);
+          output +=
+              ((row + col) % 2 == 0) ? kWhiteBackground : kBlackBackground;
           output += kPieceText;
           output += kUnicodePieces[GetPiece(file, rank)];
         } else {
@@ -165,7 +162,7 @@ class Chess : public Game<ChessMove> {
       std::string move) const override {
     // If the first letter is lowercase, this is a pawn move; We should insert
     // an extra character at the beginning
-    if (std::islower(move[0])) {
+    if (std::islower(move[0]) != 0) {
       move.insert(0, " ");
     }
 
@@ -212,7 +209,7 @@ class Chess : public Game<ChessMove> {
       if (board_[from] == type && IsWhite(board_[from]) == white_to_move_) {
         // TODO Is it viable?
         std::vector<int8_t> tos = LegalMoves(from);
-        if (std::find(tos.begin(), tos.end(), to) != tos.end()) {
+        if (std::ranges::find(tos, to) != tos.end()) {
           from_candidates.push_back(from);
         }
       }
@@ -221,11 +218,15 @@ class Chess : public Game<ChessMove> {
     if (from_candidates.size() != 1) {
       return std::nullopt;
     }
-    return std::optional<ChessMove>(ChessMove{
-        .from = from_candidates[0], .to = to, .captured = board_[to]});
+    return ChessMove{
+        .from = from_candidates[0], .to = to, .captured = board_[to]};
   }
 
-  [[nodiscard]] int8_t LogicalToPhysical(char file, char rank) const {
+  static bool IsWhite(const Piece piece) {
+    return (piece >= kWhiteKing && piece <= kWhitePawn);
+  }
+
+  static int8_t LogicalToPhysical(char file, char rank) {
     return (8 * (rank - '1')) + (file - 'a');
   }
 
@@ -265,7 +266,7 @@ class Chess : public Game<ChessMove> {
   // move to on a chessboard. We can also compute the legal moves for a knight
   // and king by breaking on the first step
   [[nodiscard]] std::vector<int8_t> MovesPattern(
-      int8_t from, const std::vector<int8_t> step_sizes,
+      int8_t from, const std::vector<int8_t> &step_sizes,
       bool knight_or_king = false) const {
     // Calculate the rank and file of the `from` square
     const int8_t from_rank = from / 8;

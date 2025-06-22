@@ -17,16 +17,15 @@ int main() {
   while (true) {
     // Human player
     std::cout << kClearTerminal << kCursorTopLeft << game.ToString() << "\n";
-    ChessMove white_move = human.SelectMove(game);
-    game.RecordMove(white_move);
-    game.MakeMove(white_move);
+    const auto human_move = human.SelectMove(game);
+    game.RecordMove(human_move);
+    game.MakeMove(human_move);
 
     // Minimax agent player
     std::cout << kClearTerminal << kCursorTopLeft << game.ToString() << "\n";
-    std::cout << "Minimax agent is thinking...\n";
-    ChessMove black_move = minimax.SelectMove(game);
-    game.RecordMove(black_move);
-    game.MakeMove(black_move);
+    const auto minimax_move = minimax.SelectMove(game);
+    game.RecordMove(minimax_move);
+    game.MakeMove(minimax_move);
   }
   return 0;
 }

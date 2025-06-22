@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <iostream>
 #include <limits>
 #include <vector>
 
@@ -17,6 +18,7 @@ class MinimaxAgent : public Agent<Move> {
   // return the move itself instead of its value
   // TODO Consider using iterative deepening instead
   Move SelectMove(Game<Move> &state) override {
+    std::cout << "Minimax agent is thinking...\n";
     double best_value = kNegInf;
     std::vector<Move> best_moves;
 
