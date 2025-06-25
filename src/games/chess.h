@@ -125,11 +125,13 @@ class Chess : public Game<ChessMove> {
     // that rank, then every eighth move in the move history
     std::string output = kClearTerminal + kCursorTopLeft;
     for (int row = 0; row < 9; ++row) {
-      char rank = (white_perspective_ ? '8' - row : '1' + row);
+      const char rank =
+          static_cast<char>(white_perspective_ ? '8' - row : '1' + row);
       output += (row == 8 ? ' ' : rank);
       output += ' ';
       for (int col = 0; col < 8; ++col) {
-        char file = (white_perspective_ ? 'a' + col : 'h' - col);
+        const char file =
+            static_cast<char>(white_perspective_ ? 'a' + col : 'h' - col);
         if (row != 8) {
           // The board is such that top left square is white for both players
           output +=
@@ -173,16 +175,13 @@ class Chess : public Game<ChessMove> {
     // TODO Strip out x for capture or e.p. for en passant.
     // TODO Also handle special case of castling
 
-    // The string should refer to a valid square on the board
-    if ((move[1] < 'a') || (move[1] > 'h')) {
-      return std::nullopt;
-    }
-    if ((move[2] < '1') || (move[2] > '8')) {
+    // Ensure string refers to a valid square on the board
+    if (move[1] < 'a' || move[1] > 'h' || move[2] < '1' || move[2] > '8') {
       return std::nullopt;
     }
 
     // https://en.wikipedia.org/wiki/Algebraic_notation_(chess)
-    // We read off the type of the piece being moved and its destination
+    // Read off the type of the piece being moved and its destination
     int8_t offset;
     switch (move[0]) {
       case 'K':
@@ -204,14 +203,13 @@ class Chess : public Game<ChessMove> {
         offset = 6;
         break;
     }
-    const Piece type = static_cast<Piece>((6 * !white_to_move_) + offset);
+    const auto type = static_cast<Piece>(offset + (6 * !white_to_move_));
     const Square to = LogicalToPhysical(move[1], move[2]);
 
     // Now we look for pieces of that type that can moved to the destination
     std::vector<Square> from_candidates;
     for (Square from = 0; from < 64; ++from) {
       if (board_[from] == type && IsWhite(board_[from]) == white_to_move_) {
-        // TODO Is it viable?
         std::vector<Square> tos = GetToSquares(from);
         if (std::ranges::find(tos, to) != tos.end()) {
           from_candidates.push_back(from);
@@ -263,12 +261,12 @@ class Chess : public Game<ChessMove> {
                               const std::vector<int8_t> &step_sizes,
                               bool knight_or_king = false) const {
     // Calculate the rank and file of the `from` square
-    const int8_t from_rank = from / 8;
-    const int8_t from_file = from % 8;
+    const auto from_rank = static_cast<int8_t>(from / 8);
+    const auto from_file = static_cast<int8_t>(from % 8);
 
     for (auto step_size : step_sizes) {
       for (int8_t i = 1;; ++i) {
-        Square to = from + (step_size * i);
+        const auto to = static_cast<Square>(from + (step_size * i));
 
         // Ensure the move is within the board boundaries
         if (to < 0 || to >= 64) {
@@ -276,8 +274,8 @@ class Chess : public Game<ChessMove> {
         }
 
         // Calculate the rank and file of the `to` square
-        const int8_t to_rank = to / 8;
-        const int8_t to_file = to % 8;
+        const auto to_rank = static_cast<int8_t>(to / 8);
+        const auto to_file = static_cast<int8_t>(to % 8);
 
         // Ensure the move does not wrap around the board
         if (abs(step_size) == 1 && to_rank != from_rank) {
@@ -307,30 +305,39 @@ class Chess : public Game<ChessMove> {
   }
 
   void InsertToSquaresPawn(Square from, std::vector<Square> &tos) const {
-    int orientation = ((board_[from] == kWhitePawn) ? 1 : -1);
-    const Square forward = from + (8 * orientation);
-    if (!IsOccupied(forward) && forward >= 0 && forward < 64) {
-      tos.push_back(forward);
+    // Calculate the rank and file of the `from` square
+    const auto from_rank = static_cast<int8_t>(from / 8);
+    const auto from_file = static_cast<int8_t>(from % 8);
 
-      const Square double_forward = from + (16 * orientation);
-      if (!IsOccupied(double_forward) &&
-          (((from / 8 == 1) && (board_[from] == kWhitePawn)) ||
-           ((from / 8 == 6) && (board_[from] == kBlackPawn)))) {
-        tos.push_back((double_forward));
+    const int orientation = (board_[from] == kWhitePawn) ? 1 : -1;
+
+    if ((from_rank != 7 || board_[from] != kWhitePawn) &&
+        (from_rank != 0 || board_[from] != kBlackPawn)) {
+      const auto forward = static_cast<Square>(from + (8 * orientation));
+      if (!IsOccupied(forward)) {
+        tos.push_back(forward);
+
+        if ((from_rank == 1 && board_[from] == kWhitePawn) ||
+            (from_rank == 6 && board_[from] == kBlackPawn)) {
+          const auto double_forward =
+              static_cast<Square>(from + (16 * orientation));
+          if (!IsOccupied(double_forward)) {
+            tos.push_back((double_forward));
+          }
+        }
       }
     }
 
-    const int8_t from_file = from % 8;
     if ((from_file != 0 || board_[from] != kWhitePawn) &&
         (from_file != 7 || board_[from] != kBlackPawn)) {
-      const Square attack_left = from + (7 * orientation);
+      const auto attack_left = static_cast<Square>(from + (7 * orientation));
       if (IsOpponent(attack_left)) {
         tos.push_back(attack_left);
       }
     }
     if ((from_file != 7 || board_[from] != kWhitePawn) &&
         (from_file != 0 || board_[from] != kBlackPawn)) {
-      const Square attack_right = from + (9 * orientation);
+      const auto attack_right = static_cast<Square>(from + (9 * orientation));
       if (IsOpponent(attack_right)) {
         tos.push_back(attack_right);
       }
