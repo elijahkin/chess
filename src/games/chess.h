@@ -10,6 +10,8 @@
 #include "../base.h"
 
 // Define color scheme via ANSI escape codes
+const std::string kClearTerminal = "\033[2J";
+const std::string kCursorTopLeft = "\033[1;1H";
 const std::string kPieceText = "\33[30m";
 const std::string kHistoryText = "\33[38;5;240m";
 const std::string kResetText = "\33[39m";
@@ -43,9 +45,11 @@ const std::vector<char> kPieceLetters = {'K', 'Q', 'R', 'B', 'N', '\0'};
 const std::vector<int> kMaterialValues = {0,   40, 9,  5,  3,  3, 1,
                                           -40, -9, -5, -3, -3, -1};
 
+using Square = int8_t;
+
 struct ChessMove {
-  int8_t from;
-  int8_t to;
+  Square from;
+  Square to;
   Piece captured;
 };
 
@@ -72,7 +76,7 @@ class Chess : public Game<ChessMove> {
         if (rank == '7' || rank == '8') {
           piece = static_cast<Piece>(piece + 6);
         }
-        SetPiece(file, rank, piece);
+        board_[LogicalToPhysical(file, rank)] = piece;
       }
     }
     white_to_move_ = true;
@@ -106,9 +110,9 @@ class Chess : public Game<ChessMove> {
 
   [[nodiscard]] std::vector<ChessMove> GetMoves() const override {
     std::vector<ChessMove> moves;
-    for (int8_t from = 0; from < 64; ++from) {
+    for (Square from = 0; from < 64; ++from) {
       if (IsWhite(board_[from]) == white_to_move_) {
-        for (int8_t to : LegalMoves(from)) {
+        for (Square to : GetToSquares(from)) {
           moves.push_back({from, to, board_[to]});
         }
       }
@@ -119,7 +123,7 @@ class Chess : public Game<ChessMove> {
   [[nodiscard]] std::string ToString() const override {
     // For each rank, print out the rank label on the left, then the squares of
     // that rank, then every eighth move in the move history
-    std::string output;
+    std::string output = kClearTerminal + kCursorTopLeft;
     for (int row = 0; row < 9; ++row) {
       char rank = (white_perspective_ ? '8' - row : '1' + row);
       output += (row == 8 ? ' ' : rank);
@@ -131,7 +135,7 @@ class Chess : public Game<ChessMove> {
           output +=
               ((row + col) % 2 == 0) ? kWhiteBackground : kBlackBackground;
           output += kPieceText;
-          output += kUnicodePieces[GetPiece(file, rank)];
+          output += kUnicodePieces[board_[LogicalToPhysical(file, rank)]];
         } else {
           output += file;
         }
@@ -201,14 +205,14 @@ class Chess : public Game<ChessMove> {
         break;
     }
     const Piece type = static_cast<Piece>((6 * !white_to_move_) + offset);
-    const int8_t to = LogicalToPhysical(move[1], move[2]);
+    const Square to = LogicalToPhysical(move[1], move[2]);
 
     // Now we look for pieces of that type that can moved to the destination
-    std::vector<int8_t> from_candidates;
-    for (size_t from = 0; from < board_.size(); ++from) {
+    std::vector<Square> from_candidates;
+    for (Square from = 0; from < 64; ++from) {
       if (board_[from] == type && IsWhite(board_[from]) == white_to_move_) {
         // TODO Is it viable?
-        std::vector<int8_t> tos = LegalMoves(from);
+        std::vector<Square> tos = GetToSquares(from);
         if (std::ranges::find(tos, to) != tos.end()) {
           from_candidates.push_back(from);
         }
@@ -222,35 +226,6 @@ class Chess : public Game<ChessMove> {
         .from = from_candidates[0], .to = to, .captured = board_[to]};
   }
 
-  static bool IsWhite(const Piece piece) {
-    return (piece >= kWhiteKing && piece <= kWhitePawn);
-  }
-
-  static int8_t LogicalToPhysical(char file, char rank) {
-    return (8 * (rank - '1')) + (file - 'a');
-  }
-
-  void SetPiece(char file, char rank, Piece piece) {
-    board_[LogicalToPhysical(file, rank)] = piece;
-  }
-
-  [[nodiscard]] Piece GetPiece(char file, char rank) const {
-    return board_[LogicalToPhysical(file, rank)];
-  }
-
-  // These terse function are designed to make the logic of scanning for moves
-  // more intuitive. It is common to want to know whether a particular square is
-  // occupied
-  [[nodiscard]] bool IsOccupied(int8_t square) const {
-    return board_[square] != kEmpty;
-  }
-
-  // We would also often like to know whether a square is occupied by the
-  // opponent
-  [[nodiscard]] bool IsOpponent(int8_t square) const {
-    return IsOccupied(square) && (IsWhite(board_[square]) != white_to_move_);
-  }
-
   // Log the move to `history_` to be printed with the board
   void RecordMove(const ChessMove &move) {
     if (white_to_move_) {
@@ -262,20 +237,38 @@ class Chess : public Game<ChessMove> {
     }
   }
 
+ private:
+  // Converts the rank and file on the chess board to the index of the
+  // corresponding square in `board_`
+  static Square LogicalToPhysical(char file, char rank) {
+    return (8 * (rank - '1')) + (file - 'a');
+  }
+
+  static bool IsWhite(const Piece piece) {
+    return (piece >= kWhiteKing && piece <= kWhitePawn);
+  }
+
+  [[nodiscard]] bool IsOccupied(Square square) const {
+    return board_[square] != kEmpty;
+  }
+
+  [[nodiscard]] bool IsOpponent(Square square) const {
+    return IsOccupied(square) && (IsWhite(board_[square]) != white_to_move_);
+  }
+
   // Compute the legal moves for a bishop, rook, or queen on square `from` can
   // move to on a chessboard. We can also compute the legal moves for a knight
   // and king by breaking on the first step
-  [[nodiscard]] std::vector<int8_t> MovesPattern(
-      int8_t from, const std::vector<int8_t> &step_sizes,
-      bool knight_or_king = false) const {
+  void InsertToSquaresPattern(Square from, std::vector<Square> &tos,
+                              const std::vector<int8_t> &step_sizes,
+                              bool knight_or_king = false) const {
     // Calculate the rank and file of the `from` square
     const int8_t from_rank = from / 8;
     const int8_t from_file = from % 8;
 
-    std::vector<int8_t> tos;
     for (auto step_size : step_sizes) {
       for (int8_t i = 1;; ++i) {
-        int8_t to = from + (step_size * i);
+        Square to = from + (step_size * i);
 
         // Ensure the move is within the board boundaries
         if (to < 0 || to >= 64) {
@@ -311,56 +304,62 @@ class Chess : public Game<ChessMove> {
         }
       }
     }
-    return tos;
   }
 
-  // Compute a vector squares that a particular piece can move to. We use
-  // fallthrough here for every piece type except pawns (pawns can only move in
-  // one direction depending on color)
-  [[nodiscard]] std::vector<int8_t> LegalMoves(int8_t from) const {
+  void InsertToSquaresPawn(Square from, std::vector<Square> &tos) const {
+    int orientation = ((board_[from] == kWhitePawn) ? 1 : -1);
+    const Square forward = from + (8 * orientation);
+    if (!IsOccupied(forward)) {
+      tos.push_back(forward);
+    }
+    const Square double_forward = from + (16 * orientation);
+    // TODO We also need to verify color here
+    if (!IsOccupied(double_forward) && ((from / 8 == 1) || (from / 8 == 6))) {
+      tos.push_back((double_forward));
+    }
+    const Square left = from + (7 * orientation);
+    if (IsOpponent(left)) {
+      tos.push_back(left);
+    }
+    const Square right = from + (9 * orientation);
+    if (IsOpponent(right)) {
+      tos.push_back(right);
+    }
+  }
+
+  // Computes a vector of squares that the piece at `from` can move to
+  [[nodiscard]] std::vector<Square> GetToSquares(Square from) const {
+    std::vector<Square> tos;
     switch (board_[from]) {
       case kEmpty:
-        return {};
+        break;
       case kWhiteKing:
       case kBlackKing:
-        return MovesPattern(from, {-9, -8, -7, -1, 1, 7, 8, 9}, true);
+        InsertToSquaresPattern(from, tos, {-9, -8, -7, -1, 1, 7, 8, 9}, true);
+        break;
       case kWhiteQueen:
       case kBlackQueen:
-        return MovesPattern(from, {-9, -8, -7, -1, 1, 7, 8, 9});
+        InsertToSquaresPattern(from, tos, {-9, -8, -7, -1, 1, 7, 8, 9});
+        break;
       case kWhiteRook:
       case kBlackRook:
-        return MovesPattern(from, {-8, -1, 1, 8});
+        InsertToSquaresPattern(from, tos, {-8, -1, 1, 8});
+        break;
       case kWhiteBishop:
       case kBlackBishop:
-        return MovesPattern(from, {-9, -7, 7, 9});
+        InsertToSquaresPattern(from, tos, {-9, -7, 7, 9});
+        break;
       case kWhiteKnight:
       case kBlackKnight:
-        return MovesPattern(from, {-17, -15, -10, -6, 6, 10, 15, 17}, true);
+        InsertToSquaresPattern(from, tos, {-17, -15, -10, -6, 6, 10, 15, 17},
+                               true);
+        break;
       case kWhitePawn:
       case kBlackPawn:
-        // TODO Need to rewrite this; pawns are teleporting around the edges of
-        // the board
-        std::vector<int8_t> tos;
-        int orientation = ((board_[from] == kWhitePawn) ? 1 : -1);
-        int8_t forward = from + (8 * orientation);
-        if (!IsOccupied(forward)) {
-          tos.push_back(forward);
-        }
-        int8_t double_forward = from + (16 * orientation);
-        if (!IsOccupied(double_forward) &&
-            ((from / 8 == 1) || (from / 8 == 6))) {
-          tos.push_back((double_forward));
-        }
-        int8_t left = from + (7 * orientation);
-        if (IsOpponent(left)) {
-          tos.push_back(left);
-        }
-        int8_t right = from + (9 * orientation);
-        if (IsOpponent(right)) {
-          tos.push_back(right);
-        }
-        return tos;
+        InsertToSquaresPawn(from, tos);
+        break;
     }
+    return tos;
   }
 
   // Note that this function relies on the move not yet being made to retrieve
@@ -373,15 +372,17 @@ class Chess : public Game<ChessMove> {
     return output;
   }
 
- private:
   // In memory, we store the board rank-major such that the squares laid out in
   // board_ like so: 1a ... 1h 2a ... 2h ... 7h 8a ... 8h. This makes it easier
   // to initialize the board in its starting position
   std::array<Piece, 64> board_;
-  // This boolean keeps track of whose turn it is
+
+  // Keeps track of whose turn it is
   bool white_to_move_;
+
   // We record the algebraic notation of each move in this vector
   std::vector<std::string> history_;
-  // This field determines from whose perspective we print the board
+
+  // Determines from whose perspective we print the board
   bool white_perspective_;
 };
