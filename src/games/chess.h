@@ -309,21 +309,31 @@ class Chess : public Game<ChessMove> {
   void InsertToSquaresPawn(Square from, std::vector<Square> &tos) const {
     int orientation = ((board_[from] == kWhitePawn) ? 1 : -1);
     const Square forward = from + (8 * orientation);
-    if (!IsOccupied(forward)) {
+    if (!IsOccupied(forward) && forward >= 0 && forward < 64) {
       tos.push_back(forward);
+
+      const Square double_forward = from + (16 * orientation);
+      if (!IsOccupied(double_forward) &&
+          (((from / 8 == 1) && (board_[from] == kWhitePawn)) ||
+           ((from / 8 == 6) && (board_[from] == kBlackPawn)))) {
+        tos.push_back((double_forward));
+      }
     }
-    const Square double_forward = from + (16 * orientation);
-    // TODO We also need to verify color here
-    if (!IsOccupied(double_forward) && ((from / 8 == 1) || (from / 8 == 6))) {
-      tos.push_back((double_forward));
+
+    const int8_t from_file = from % 8;
+    if ((from_file != 0 || board_[from] != kWhitePawn) &&
+        (from_file != 7 || board_[from] != kBlackPawn)) {
+      const Square attack_left = from + (7 * orientation);
+      if (IsOpponent(attack_left)) {
+        tos.push_back(attack_left);
+      }
     }
-    const Square left = from + (7 * orientation);
-    if (IsOpponent(left)) {
-      tos.push_back(left);
-    }
-    const Square right = from + (9 * orientation);
-    if (IsOpponent(right)) {
-      tos.push_back(right);
+    if ((from_file != 7 || board_[from] != kWhitePawn) &&
+        (from_file != 0 || board_[from] != kBlackPawn)) {
+      const Square attack_right = from + (9 * orientation);
+      if (IsOpponent(attack_right)) {
+        tos.push_back(attack_right);
+      }
     }
   }
 
@@ -332,6 +342,7 @@ class Chess : public Game<ChessMove> {
     std::vector<Square> tos;
     switch (board_[from]) {
       case kEmpty:
+        // TODO If we ever reach this, we're wasting function calls
         break;
       case kWhiteKing:
       case kBlackKing:
@@ -375,7 +386,7 @@ class Chess : public Game<ChessMove> {
   // In memory, we store the board rank-major such that the squares laid out in
   // board_ like so: 1a ... 1h 2a ... 2h ... 7h 8a ... 8h. This makes it easier
   // to initialize the board in its starting position
-  std::array<Piece, 64> board_;
+  std::array<Piece, 64> board_{};
 
   // Keeps track of whose turn it is
   bool white_to_move_;
