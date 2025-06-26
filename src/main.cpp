@@ -1,8 +1,8 @@
 #include <iostream>
 
-#include "agents/human_agent.h"
-#include "agents/minimax_agent.h"
-#include "games/chess.h"
+#include "agents/human_agent.hpp"
+#include "agents/minimax_agent.hpp"
+#include "games/chess.hpp"
 
 int main() {
   // Set up the game and the agents

@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "../base.h"
+#include "../base.hpp"
 
 // Assign human-readable names to ANSI escape codes.
 const std::string kCursorHome = "\x1B[H";

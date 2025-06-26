@@ -3,7 +3,7 @@
 #include <limits>
 #include <vector>
 
-#include "../base.h"
+#include "../base.hpp"
 
 static const double kInf = std::numeric_limits<double>::infinity();
 static const double kNegInf = -std::numeric_limits<double>::infinity();
