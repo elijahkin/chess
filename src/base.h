@@ -8,11 +8,11 @@
 template <typename Move>
 class Game {
  public:
-  [[nodiscard]] virtual double Valuate() const = 0;
+  [[nodiscard]] virtual double HeuristicValue() const = 0;
 
   virtual void MakeMove(const Move &move) = 0;
 
-  virtual void RevertMove(const Move &move) = 0;
+  virtual void UnmakeMove(const Move &move) = 0;
 
   [[nodiscard]] virtual std::vector<Move> GetMoves() const = 0;
 

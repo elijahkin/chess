@@ -3,12 +3,13 @@
 
 #include "../base.h"
 
+// Prompts the user for command line input, which is parsed via `state.Parse`.
+// If the parse fails, alerts the user and prompts for input again.
 template <typename Move>
-class HumanAgent : public Agent<Move> {
+class HumanAgent final : public Agent<Move> {
  public:
   HumanAgent() = default;
 
-  // Loop until the user enters a valid move
   Move SelectMove(Game<Move> &state) override {
     std::string input;
     while (true) {

@@ -9,15 +9,15 @@
 
 #include "../base.h"
 
-// Define color scheme via ANSI escape codes
-const std::string kClearTerminal = "\033[2J";
-const std::string kCursorTopLeft = "\033[1;1H";
-const std::string kPieceText = "\33[30m";
-const std::string kHistoryText = "\33[38;5;240m";
-const std::string kResetText = "\33[39m";
-const std::string kWhiteBackground = "\33[47m";
-const std::string kBlackBackground = "\33[45m";
-const std::string kResetBackground = "\33[49m";
+// Assign human-readable names to ANSI escape codes.
+const std::string kCursorHome = "\x1B[H";
+const std::string kEraseScreen = "\x1B[2J";
+const std::string kForegroundBlack = "\x1B[30m";
+const std::string kForegroundGray = "\x1B[38;5;240m";
+const std::string kForegroundDefault = "\x1B[39m";
+const std::string kBackgroundMagenta = "\x1B[45m";
+const std::string kBackgroundWhite = "\x1B[47m";
+const std::string kBackgroundDefault = "\x1B[49m";
 
 enum Piece : int8_t {
   kEmpty,
@@ -53,18 +53,19 @@ struct ChessMove {
   Piece captured;
 };
 
-class Chess : public Game<ChessMove> {
+class Chess final : public Game<ChessMove> {
  public:
-  explicit Chess(bool white_perspective) {
-    // Define the types and order of pieces in white's major rank. The same
-    // order is copied for black's major rank
+  explicit Chess(bool white_perspective)
+      : white_perspective_(white_perspective) {
+    // Stores the types and order of pieces in white's major rank. Black's major
+    // rank is deduced from this.
     const std::vector<Piece> white_major = {
         kWhiteRook, kWhiteKnight, kWhiteBishop, kWhiteQueen,
         kWhiteKing, kWhiteBishop, kWhiteKnight, kWhiteRook};
 
     // Set up the board with the pieces in their starting positions. The ranks
     // are numbered starting from white's side of the board, such that white's
-    // pieces start in ranks 1 and 2
+    // pieces start in ranks 1 and 2.
     for (char rank = '1'; rank <= '8'; ++rank) {
       for (char file = 'a'; file <= 'h'; ++file) {
         Piece piece = kEmpty;
@@ -79,13 +80,10 @@ class Chess : public Game<ChessMove> {
         board_[LogicalToPhysical(file, rank)] = piece;
       }
     }
-    white_to_move_ = true;
-    white_perspective_ = white_perspective;
   }
 
-  // Compute the sum of white's material minus the sum of black's material
-  // TODO supply this function based on which player is Minimax
-  [[nodiscard]] double Valuate() const override {
+  // Computes the sum of white's material minus the sum of black's material.
+  [[nodiscard]] double HeuristicValue() const override {
     double material_advantage = 0;
     for (auto piece : board_) {
       material_advantage -= kMaterialValues[piece];
@@ -93,19 +91,28 @@ class Chess : public Game<ChessMove> {
     return material_advantage;
   }
 
-  // Perform the move in memory and switch with the other player. We also return
-  // the Piece previously on the square move.to in case we have to revert the
-  // move later (such as during a minimax search)
+  // Performs the move in memory and switches with the other player.
   void MakeMove(const ChessMove &move) override {
     board_[move.to] = board_[move.from];
     board_[move.from] = kEmpty;
     white_to_move_ = !white_to_move_;
   }
 
-  void RevertMove(const ChessMove &move) override {
+  void UnmakeMove(const ChessMove &move) override {
     board_[move.from] = board_[move.to];
     board_[move.to] = move.captured;
     white_to_move_ = !white_to_move_;
+  }
+
+  // Logs the move to `history_` and makes it.
+  void RecordMove(const ChessMove &move) {
+    if (white_to_move_) {
+      history_.push_back(GetAlgebraicNotation(move));
+    } else {
+      std::string &tmp = history_.back();
+      tmp.insert(tmp.length(), " ");
+      tmp.insert(tmp.length(), GetAlgebraicNotation(move));
+    }
   }
 
   [[nodiscard]] std::vector<ChessMove> GetMoves() const override {
@@ -121,9 +128,9 @@ class Chess : public Game<ChessMove> {
   }
 
   [[nodiscard]] std::string ToString() const override {
-    // For each rank, print out the rank label on the left, then the squares of
-    // that rank, then every eighth move in the move history
-    std::string output = kClearTerminal + kCursorTopLeft;
+    // For each rank, prints out the rank label on the left, then the squares of
+    // that rank, then every ninth move in the move history.
+    std::string output = kEraseScreen + kCursorHome;
     for (int row = 0; row < 9; ++row) {
       const char rank =
           static_cast<char>(white_perspective_ ? '8' - row : '1' + row);
@@ -135,39 +142,39 @@ class Chess : public Game<ChessMove> {
         if (row != 8) {
           // The board is such that top left square is white for both players
           output +=
-              ((row + col) % 2 == 0) ? kWhiteBackground : kBlackBackground;
-          output += kPieceText;
+              ((row + col) % 2 == 0) ? kBackgroundWhite : kBackgroundMagenta;
+          output += kForegroundBlack;
           output += kUnicodePieces[board_[LogicalToPhysical(file, rank)]];
         } else {
           output += file;
         }
         output += ' ';
       }
-      output += kResetBackground;
-      // Print out every eighth move in the move history offset by rank
-      output += kHistoryText;
+      output += kBackgroundDefault;
+      // Prints out every ninth move in the move history offset by rank.
+      output += kForegroundGray;
       output += ' ';
       for (size_t move = row; move < history_.size(); move += 9) {
-        // Accommodate for move numbers up to 999
+        // Accommodates move numbers up to 999.
         std::string move_str = std::to_string(move + 1);
         move_str.insert(0, 3 - move_str.size(), ' ');
         move_str += ". ";
-        // Pad to support algebraic notation of different lengths
+        // Pads to support algebraic notation of different lengths.
         move_str += history_[move];
         move_str.insert(move_str.end(), 14 - move_str.size(), ' ');
         output += move_str;
       }
-      output += kResetText;
+      output += kForegroundDefault;
       output += '\n';
     }
     return output;
   }
 
-  // Parse user-input algebraic chess notation
+  // Parses user-input algebraic notation.
   [[nodiscard]] std::optional<ChessMove> Parse(
       std::string move) const override {
-    // If the first letter is lowercase, this is a pawn move; We should insert
-    // an extra character at the beginning
+    // If the first letter is lowercase, this is a pawn move; we should insert
+    // an extra character at the beginning.
     if (std::islower(move[0]) != 0) {
       move.insert(0, " ");
     }
@@ -175,13 +182,12 @@ class Chess : public Game<ChessMove> {
     // TODO Strip out x for capture or e.p. for en passant.
     // TODO Also handle special case of castling
 
-    // Ensure string refers to a valid square on the board
+    // Ensures the string refers to a valid square on the board.
     if (move[1] < 'a' || move[1] > 'h' || move[2] < '1' || move[2] > '8') {
       return std::nullopt;
     }
 
-    // https://en.wikipedia.org/wiki/Algebraic_notation_(chess)
-    // Read off the type of the piece being moved and its destination
+    // Parses the type of the piece being moved and its destination.
     int8_t offset;
     switch (move[0]) {
       case 'K':
@@ -206,7 +212,7 @@ class Chess : public Game<ChessMove> {
     const auto type = static_cast<Piece>(offset + (6 * !white_to_move_));
     const Square to = LogicalToPhysical(move[1], move[2]);
 
-    // Now we look for pieces of that type that can moved to the destination
+    // Seaches for pieces of that type that can moved to the destination.
     std::vector<Square> from_candidates;
     for (Square from = 0; from < 64; ++from) {
       if (board_[from] == type && IsWhite(board_[from]) == white_to_move_) {
@@ -216,7 +222,7 @@ class Chess : public Game<ChessMove> {
         }
       }
     }
-    // The piece to move should be unambiguous
+    // Abandons the parse if there is not exactly one such piece.
     if (from_candidates.size() != 1) {
       return std::nullopt;
     }
@@ -224,20 +230,9 @@ class Chess : public Game<ChessMove> {
         .from = from_candidates[0], .to = to, .captured = board_[to]};
   }
 
-  // Log the move to `history_` to be printed with the board
-  void RecordMove(const ChessMove &move) {
-    if (white_to_move_) {
-      history_.push_back(ToString(move));
-    } else {
-      std::string &tmp = history_.back();
-      tmp.insert(tmp.length(), " ");
-      tmp.insert(tmp.length(), ToString(move));
-    }
-  }
-
  private:
   // Converts the rank and file on the chess board to the index of the
-  // corresponding square in `board_`
+  // corresponding square in `board_`.
   static Square LogicalToPhysical(char file, char rank) {
     return (8 * (rank - '1')) + (file - 'a');
   }
@@ -260,7 +255,6 @@ class Chess : public Game<ChessMove> {
   void InsertToSquaresPattern(Square from, std::vector<Square> &tos,
                               const std::vector<int8_t> &step_sizes,
                               bool knight_or_king = false) const {
-    // Calculate the rank and file of the `from` square
     const auto from_rank = static_cast<int8_t>(from / 8);
     const auto from_file = static_cast<int8_t>(from % 8);
 
@@ -273,7 +267,6 @@ class Chess : public Game<ChessMove> {
           break;
         }
 
-        // Calculate the rank and file of the `to` square
         const auto to_rank = static_cast<int8_t>(to / 8);
         const auto to_file = static_cast<int8_t>(to % 8);
 
@@ -305,7 +298,6 @@ class Chess : public Game<ChessMove> {
   }
 
   void InsertToSquaresPawn(Square from, std::vector<Square> &tos) const {
-    // Calculate the rank and file of the `from` square
     const auto from_rank = static_cast<int8_t>(from / 8);
     const auto from_file = static_cast<int8_t>(from % 8);
 
@@ -330,21 +322,21 @@ class Chess : public Game<ChessMove> {
 
     if ((from_file != 0 || board_[from] != kWhitePawn) &&
         (from_file != 7 || board_[from] != kBlackPawn)) {
-      const auto attack_left = static_cast<Square>(from + (7 * orientation));
-      if (IsOpponent(attack_left)) {
-        tos.push_back(attack_left);
+      const auto capture_left = static_cast<Square>(from + (7 * orientation));
+      if (IsOpponent(capture_left)) {
+        tos.push_back(capture_left);
       }
     }
     if ((from_file != 7 || board_[from] != kWhitePawn) &&
         (from_file != 0 || board_[from] != kBlackPawn)) {
-      const auto attack_right = static_cast<Square>(from + (9 * orientation));
-      if (IsOpponent(attack_right)) {
-        tos.push_back(attack_right);
+      const auto capture_right = static_cast<Square>(from + (9 * orientation));
+      if (IsOpponent(capture_right)) {
+        tos.push_back(capture_right);
       }
     }
   }
 
-  // Computes a vector of squares that the piece at `from` can move to
+  // Computes a vector of squares that the piece at `from` can move to.
   [[nodiscard]] std::vector<Square> GetToSquares(Square from) const {
     std::vector<Square> tos;
     switch (board_[from]) {
@@ -380,27 +372,28 @@ class Chess : public Game<ChessMove> {
     return tos;
   }
 
-  // Note that this function relies on the move not yet being made to retrieve
-  // the piece type
-  [[nodiscard]] std::string ToString(const ChessMove &move) const {
+  // https://en.wikipedia.org/wiki/Algebraic_notation_(chess)
+  [[nodiscard]] std::string GetAlgebraicNotation(const ChessMove &move) const {
     std::string output;
     output += kPieceLetters[(board_[move.from] - 1) % 6];
+    if (move.captured != kEmpty) {
+      output += 'x';
+    }
     output += (move.to % 8) + 'a';
     output += std::to_string(1 + (move.to / 8));
     return output;
   }
 
-  // In memory, we store the board rank-major such that the squares laid out in
-  // board_ like so: 1a ... 1h 2a ... 2h ... 7h 8a ... 8h. This makes it easier
-  // to initialize the board in its starting position
+  // Stores the board rank-major such that the squares laid out in `board_` like
+  // so: 1a ... 1h 2a ... 2h ... 7h 8a ... 8h.
   std::array<Piece, 64> board_{};
 
-  // Keeps track of whose turn it is
-  bool white_to_move_;
+  // Keeps track of whose turn it is.
+  bool white_to_move_ = true;
 
-  // We record the algebraic notation of each move in this vector
+  // Records the move history in algebraic notation.
   std::vector<std::string> history_;
 
-  // Determines from whose perspective we print the board
+  // Determines from whose perspective we print the board.
   bool white_perspective_;
 };

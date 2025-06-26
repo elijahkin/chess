@@ -8,14 +8,13 @@
 static const double kInf = std::numeric_limits<double>::infinity();
 static const double kNegInf = -std::numeric_limits<double>::infinity();
 
-// Implements the minimax algorithm for abstract two-player adversarial games.
+// Performs the minimax algorithm with alpha-beta pruning and depth limited by
+// `max_plies_`.
 template <typename Move>
-class MinimaxAgent : public Agent<Move> {
+class MinimaxAgent final : public Agent<Move> {
  public:
   explicit MinimaxAgent(int max_plies) : max_plies_(max_plies) {}
 
-  // The shallowest level of the minimax search is separate because we want to
-  // return the move itself instead of its value
   // TODO Consider using iterative deepening instead
   Move SelectMove(Game<Move> &state) override {
     std::cout << "Minimax agent is thinking...\n";
@@ -38,10 +37,6 @@ class MinimaxAgent : public Agent<Move> {
   }
 
  private:
-  const int max_plies_;
-
-  // A helper function for performing the minimax algorithm with alpha-beta
-  // pruning, taking heavy inspiration from
   // https://en.wikipedia.org/wiki/Alpha%E2%80%93beta_pruning#Pseudocode
   double AlphaBeta(Game<Move> &state, const Move &move, int ply, double alpha,
                    double beta) {
@@ -49,8 +44,8 @@ class MinimaxAgent : public Agent<Move> {
 
     if (ply == max_plies_) {
       // TODO Consider using transposition tables
-      double value = state.Valuate();
-      state.RevertMove(move);
+      double value = state.HeuristicValue();
+      state.UnmakeMove(move);
       return value;
     }
 
@@ -74,7 +69,9 @@ class MinimaxAgent : public Agent<Move> {
         beta = std::min(beta, value);
       }
     }
-    state.RevertMove(move);
+    state.UnmakeMove(move);
     return value;
   }
+
+  const int max_plies_;
 };
