@@ -10,14 +10,13 @@ int main() {
   auto human = HumanAgent<ChessMove>();
   auto minimax = MinimaxAgent<ChessMove>(/*max_plies=*/5);
 
+  // Take turns making moves until someone can't
   while (!game.GetMoves().empty()) {
-    // Human player
     std::cout << game.ToString() << "\n";
     const auto human_move = human.SelectMove(game);
     game.RecordMove(human_move);
     game.MakeMove(human_move);
 
-    // Minimax agent player
     std::cout << game.ToString() << "\n";
     const auto minimax_move = minimax.SelectMove(game);
     game.RecordMove(minimax_move);
