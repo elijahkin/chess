@@ -9,18 +9,22 @@ Crucially, there is nothing about this algorithm that is specific to chess. In f
 ## Work in Progress
 We divide work broadly into that which pertains specifically to `chess.hpp` and that which does not.
 ### Chess-specific Work
-* Refactor to use [bitboard](https://en.wikipedia.org/wiki/Bitboard#Chess_bitboards) architecture. This will be tedious but (hopefully) worth the effort.
+* Refactor to use a [bitboard](https://en.wikipedia.org/wiki/Bitboard#Chess_bitboards) architecture for move generation. This will be tedious but (hopefully) worth the effort.
+  * Upon switching to bitboards, use `__builtin_popcountll` based evaluation functions.
 * Implement the [fifty-move rule](https://en.wikipedia.org/wiki/Fifty-move_rule).
-* Implement special moves: pawn promotions, en passant capture, and castling.
+* Implement special moves: pawn promotions, en passant capture, and castling. Ensure `Parse` and `GetAlgebraicNotation` are updated appropriately as well.
 * Add unit tests to guarantee correctness.
 * Fix problem with knight move generation.
 * Generalize parsing of algebraic notation to allow disambiguation via specification of the `from` square.
 ### General Work
 * `HeuristicValue` should probably belong to `MinimaxAgent` rather than `Game`.
 * `RecordAndMakeMove` should likely be another virtual function of `Game`.
-* Implement `RandomAgent`, which selects uniformly from the set of possible moves.
+* Consider avenues of improvement for `MinimaxAgent`: iterative deepening, transposition tables, random optimal move selection
+* Implement `RandomAgent`, which selects uniformly from the set of possible moves, as well as `NegamaxAgent` for zero-sum games.
 * Design a tournament and ELO system to have many agents compete against each other.
 * Implement other games: tic-tac-toe, dots and boxes, 2048, blackjack, and poker.
+* Consider whether declaring a `namespace tourney` would be appropriate
+* Address any reported clang-tidy issues. Judicious use of `// NOLINT` is permissible.
 * Continuously rewrite code to make it as self-documenting as possible. Resort to comments sparingly. Ensure that "the function" is the implicit subject of all comments and that proper punctuation is used.
 ## References
 * [Chess Programming Wiki](https://www.chessprogramming.org)

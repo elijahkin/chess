@@ -10,7 +10,7 @@ int main() {
   auto human = HumanAgent<ChessMove>();
   auto minimax = MinimaxAgent<ChessMove>(/*max_plies=*/5);
 
-  while (true) {
+  while (!game.GetMoves().empty()) {
     // Human player
     std::cout << game.ToString() << "\n";
     const auto human_move = human.SelectMove(game);

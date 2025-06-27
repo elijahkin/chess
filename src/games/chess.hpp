@@ -10,16 +10,16 @@
 #include "../base.hpp"
 
 // Assign human-readable names to ANSI escape codes.
-const std::string kCursorHome = "\x1B[H";
-const std::string kEraseScreen = "\x1B[2J";
-const std::string kForegroundBlack = "\x1B[30m";
-const std::string kForegroundGray = "\x1B[38;5;240m";
-const std::string kForegroundDefault = "\x1B[39m";
-const std::string kBackgroundMagenta = "\x1B[45m";
-const std::string kBackgroundWhite = "\x1B[47m";
-const std::string kBackgroundDefault = "\x1B[49m";
+constexpr std::string kCursorHome = "\x1B[H";
+constexpr std::string kEraseScreen = "\x1B[2J";
+constexpr std::string kForegroundBlack = "\x1B[30m";
+constexpr std::string kForegroundGray = "\x1B[38;5;240m";
+constexpr std::string kForegroundDefault = "\x1B[39m";
+constexpr std::string kBackgroundMagenta = "\x1B[45m";
+constexpr std::string kBackgroundWhite = "\x1B[47m";
+constexpr std::string kBackgroundDefault = "\x1B[49m";
 
-enum Piece : int8_t {
+enum Piece : uint8_t {
   kEmpty,
   kWhiteKing,
   kWhiteQueen,
@@ -35,17 +35,7 @@ enum Piece : int8_t {
   kBlackPawn
 };
 
-// https://en.wikipedia.org/wiki/Chess_symbols_in_Unicode
-const std::vector<std::string> kUnicodePieces = {
-    " ",      "\u2654", "\u2655", "\u2656", "\u2657", "\u2658", "\u2659",
-    "\u265a", "\u265b", "\u265c", "\u265d", "\u265e", "\u265f"};
-
-const std::vector<char> kPieceLetters = {'K', 'Q', 'R', 'B', 'N', '\0'};
-
-const std::vector<int> kMaterialValues = {0,   40, 9,  5,  3,  3, 1,
-                                          -40, -9, -5, -3, -3, -1};
-
-using Square = int8_t;
+using Square = uint8_t;
 
 struct ChessMove {
   Square from;
@@ -83,8 +73,8 @@ class Chess final : public Game<ChessMove> {
   }
 
   // Computes the sum of white's material minus the sum of black's material.
-  [[nodiscard]] double HeuristicValue() const override {
-    double material_advantage = 0;
+  [[nodiscard]] Score HeuristicValue() const override {
+    Score material_advantage = 0;
     for (auto piece : board_) {
       material_advantage -= kMaterialValues[piece];
     }
@@ -179,9 +169,6 @@ class Chess final : public Game<ChessMove> {
       move.insert(0, " ");
     }
 
-    // TODO Strip out x for capture or e.p. for en passant.
-    // TODO Also handle special case of castling
-
     // Ensures the string refers to a valid square on the board.
     if (move[1] < 'a' || move[1] > 'h' || move[2] < '1' || move[2] > '8') {
       return std::nullopt;
@@ -231,6 +218,17 @@ class Chess final : public Game<ChessMove> {
   }
 
  private:
+  // https://en.wikipedia.org/wiki/Chess_symbols_in_Unicode
+  static constexpr std::array<std::string, 13> kUnicodePieces = {
+      " ",      "\u2654", "\u2655", "\u2656", "\u2657", "\u2658", "\u2659",
+      "\u265a", "\u265b", "\u265c", "\u265d", "\u265e", "\u265f"};
+
+  static constexpr std::array<Score, 13> kMaterialValues = {
+      0, 40, 9, 5, 3, 3, 1, -40, -9, -5, -3, -3, -1};
+
+  static constexpr std::array<char, 6> kPieceLetters = {'K', 'Q', 'R',
+                                                        'B', 'N', '\0'};
+
   // Converts the rank and file on the chess board to the index of the
   // corresponding square in `board_`.
   static Square LogicalToPhysical(char file, char rank) {
@@ -262,8 +260,9 @@ class Chess final : public Game<ChessMove> {
       for (int8_t i = 1;; ++i) {
         const auto to = static_cast<Square>(from + (step_size * i));
 
-        // Ensure the move is within the board boundaries
-        if (to < 0 || to >= 64) {
+        // Ensures the move is within the board boundaries. Since `Square` is an
+        // alias for `uint8_t`, checking for negativity is not necessary.
+        if (to >= 64) {
           break;
         }
 
@@ -341,7 +340,6 @@ class Chess final : public Game<ChessMove> {
     std::vector<Square> tos;
     switch (board_[from]) {
       case kEmpty:
-        // TODO If we ever reach this, we're wasting function calls
         break;
       case kWhiteKing:
       case kBlackKing:
@@ -388,11 +386,11 @@ class Chess final : public Game<ChessMove> {
   // so: 1a ... 1h 2a ... 2h ... 7h 8a ... 8h.
   std::array<Piece, 64> board_{};
 
-  // Keeps track of whose turn it is.
-  bool white_to_move_ = true;
-
   // Records the move history in algebraic notation.
   std::vector<std::string> history_;
+
+  // Keeps track of whose turn it is.
+  bool white_to_move_ = true;
 
   // Determines from whose perspective we print the board.
   bool white_perspective_;

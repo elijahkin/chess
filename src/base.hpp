@@ -4,11 +4,13 @@
 #include <string>
 #include <vector>
 
-// Inherit from this class to implement different games
+using Score = float;
+
+// Defines the necessary functions to implement a game.
 template <typename Move>
 class Game {
  public:
-  [[nodiscard]] virtual double HeuristicValue() const = 0;
+  [[nodiscard]] virtual Score HeuristicValue() const = 0;
 
   virtual void MakeMove(const Move &move) = 0;
 
@@ -21,7 +23,7 @@ class Game {
   [[nodiscard]] virtual std::optional<Move> Parse(std::string move) const = 0;
 };
 
-// Inherit from this class to implement differet agents
+// Defines the necessary functions to implement an agent.
 template <typename Move>
 class Agent {
  public:
