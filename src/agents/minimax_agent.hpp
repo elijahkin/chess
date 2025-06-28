@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <iostream>
 #include <limits>
@@ -11,6 +12,8 @@
 template <typename Move>
 class MinimaxAgent final : public Agent<Move> {
  public:
+  using Score = float;
+
   explicit MinimaxAgent(int max_plies) : max_plies_(max_plies) {}
 
   Move SelectMove(Game<Move> &state) override {
@@ -44,15 +47,20 @@ class MinimaxAgent final : public Agent<Move> {
   static constexpr Score kInf = std::numeric_limits<Score>::infinity();
   static constexpr Score kNegInf = -std::numeric_limits<Score>::infinity();
 
+  static constexpr std::array<Score, 13> kBlackAdvantageOnCapture = {
+      0, 200, 9, 5, 3, 3, 1, -200, -9, -5, -3, -3, -1};
+
   // https://en.wikipedia.org/wiki/Alpha%E2%80%93beta_pruning#Pseudocode
   Score AlphaBeta(Game<Move> &state, const Move &move, int ply, Score alpha,
                   Score beta) {
     state.MakeMove(move);
+    heuristic_value_ += kBlackAdvantageOnCapture[move.captured];
 
     if (ply == max_plies_) {
-      Score value = state.HeuristicValue();
+      const Score value = heuristic_value_;
       evaluations_++;
       state.UnmakeMove(move);
+      heuristic_value_ -= kBlackAdvantageOnCapture[move.captured];
       return value;
     }
 
@@ -77,10 +85,13 @@ class MinimaxAgent final : public Agent<Move> {
       }
     }
     state.UnmakeMove(move);
+    heuristic_value_ -= kBlackAdvantageOnCapture[move.captured];
     return value;
   }
 
   int max_plies_;
+
+  Score heuristic_value_ = 0;
 
   int evaluations_ = 0;
 };

@@ -4,15 +4,11 @@
 #include <string>
 #include <vector>
 
-using Score = float;
-
 // Defines the necessary functions to implement a game.
 template <typename Move>
 class Game {
  public:
   virtual ~Game() = default;
-
-  [[nodiscard]] virtual Score HeuristicValue() const = 0;
 
   virtual void MakeMove(const Move &move) = 0;
 
