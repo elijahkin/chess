@@ -74,7 +74,7 @@ class Chess final : public Game<ChessMove> {
   }
 
   [[nodiscard]] Score HeuristicValue() const override {
-    return material_advantage_;
+    return -white_advantage_;
   }
 
   // Performs the move in memory, updates the material advantage, and changes to
@@ -82,14 +82,14 @@ class Chess final : public Game<ChessMove> {
   void MakeMove(const ChessMove &move) override {
     board_[move.to] = board_[move.from];
     board_[move.from] = kEmpty;
-    material_advantage_ += kMaterialValues[move.captured];
+    white_advantage_ += kWhiteAdvantageOnCapture[move.captured];
     white_to_move_ = !white_to_move_;
   }
 
   void UnmakeMove(const ChessMove &move) override {
     board_[move.from] = board_[move.to];
     board_[move.to] = move.captured;
-    material_advantage_ -= kMaterialValues[move.captured];
+    white_advantage_ -= kWhiteAdvantageOnCapture[move.captured];
     white_to_move_ = !white_to_move_;
   }
 
@@ -221,8 +221,8 @@ class Chess final : public Game<ChessMove> {
       " ",      "\u2654", "\u2655", "\u2656", "\u2657", "\u2658", "\u2659",
       "\u265a", "\u265b", "\u265c", "\u265d", "\u265e", "\u265f"};
 
-  static constexpr std::array<Score, 13> kMaterialValues = {
-      0, 40, 9, 5, 3, 3, 1, -40, -9, -5, -3, -3, -1};
+  static constexpr std::array<Score, 13> kWhiteAdvantageOnCapture = {
+      0, -200, -9, -5, -3, -3, -1, 200, 9, 5, 3, 3, 1};
 
   static constexpr std::array<char, 6> kPieceLetters = {'K', 'Q', 'R',
                                                         'B', 'N', '\0'};
@@ -387,7 +387,7 @@ class Chess final : public Game<ChessMove> {
   std::vector<std::string> history_;
 
   // Stores the sum of white's material minus the sum of black's material.
-  Score material_advantage_ = 0;
+  Score white_advantage_ = 0;
 
   // Keeps track of whose turn it is.
   bool white_to_move_ = true;
