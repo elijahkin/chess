@@ -10,6 +10,8 @@ using Score = float;
 template <typename Move>
 class Game {
  public:
+  virtual ~Game() = default;
+
   [[nodiscard]] virtual Score HeuristicValue() const = 0;
 
   virtual void MakeMove(const Move &move) = 0;
@@ -28,5 +30,7 @@ class Game {
 template <typename Move>
 class Agent {
  public:
+  virtual ~Agent() = default;
+
   [[nodiscard]] virtual Move SelectMove(Game<Move> &state) = 0;
 };
