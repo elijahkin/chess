@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <iostream>
 #include <limits>
 #include <vector>
@@ -93,5 +94,5 @@ class MinimaxAgent final : public Agent<Move> {
 
   Score heuristic_value_ = 0;
 
-  int evaluations_ = 0;
+  size_t evaluations_ = 0;
 };
