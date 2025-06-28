@@ -80,7 +80,7 @@ class MinimaxAgent final : public Agent<Move> {
     return value;
   }
 
-  const int max_plies_;
+  int max_plies_;
 
   int evaluations_ = 0;
 };

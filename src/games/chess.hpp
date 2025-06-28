@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <optional>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -121,12 +122,12 @@ class Chess final : public Game<ChessMove> {
     // For each rank, prints out the rank label on the left, then the squares of
     // that rank, then every ninth move in the move history.
     std::string output = kEraseScreen + kCursorHome;
-    for (int row = 0; row < 9; ++row) {
+    for (size_t row = 0; row < 9; ++row) {
       const char rank =
           static_cast<char>(white_perspective_ ? '8' - row : '1' + row);
       output += (row == 8 ? ' ' : rank);
       output += ' ';
-      for (int col = 0; col < 8; ++col) {
+      for (size_t col = 0; col < 8; ++col) {
         const char file =
             static_cast<char>(white_perspective_ ? 'a' + col : 'h' - col);
         if (row != 8) {
@@ -162,21 +163,21 @@ class Chess final : public Game<ChessMove> {
 
   // Parses user-input algebraic notation.
   [[nodiscard]] std::optional<ChessMove> Parse(
-      std::string move) const override {
-    // If the first letter is lowercase, this is a pawn move; we should insert
-    // an extra character at the beginning.
-    if (std::islower(move[0]) != 0) {
-      move.insert(0, " ");
-    }
+      const std::string &move) const override {
+    const std::regex pattern("([BKNRQ]?)x?([a-h])([1-8])");
 
-    // Ensures the string refers to a valid square on the board.
-    if (move[1] < 'a' || move[1] > 'h' || move[2] < '1' || move[2] > '8') {
+    // Ensures syntactic correctness of input.
+    std::smatch matches;
+    if (!std::regex_match(move, matches, pattern)) {
       return std::nullopt;
     }
 
-    // Parses the type of the piece being moved and its destination.
-    int8_t offset;
-    switch (move[0]) {
+    // Computes the piece type and destination from the captured groups.
+    const char piece = matches[1].str()[0];
+    const char to_file = matches[2].str()[0];
+    const char to_rank = matches[3].str()[0];
+    int8_t offset = 6;
+    switch (piece) {
       case 'K':
         offset = 1;
         break;
@@ -193,11 +194,10 @@ class Chess final : public Game<ChessMove> {
         offset = 5;
         break;
       default:
-        offset = 6;
         break;
     }
     const auto type = static_cast<Piece>(offset + (6 * !white_to_move_));
-    const Square to = LogicalToPhysical(move[1], move[2]);
+    const Square to = LogicalToPhysical(to_file, to_rank);
 
     // Seaches for pieces of that type that can moved to the destination.
     std::vector<Square> from_candidates;
@@ -247,16 +247,16 @@ class Chess final : public Game<ChessMove> {
     return IsOccupied(square) && (IsWhite(board_[square]) != white_to_move_);
   }
 
-  // Compute the legal moves for a bishop, rook, or queen on square `from` can
-  // move to on a chessboard. We can also compute the legal moves for a knight
-  // and king by breaking on the first step
-  void InsertToSquaresPattern(Square from, std::vector<Square> &tos,
-                              const std::vector<int8_t> &step_sizes,
+  // Computes the legal moves for sliding pieces (bishop, rook, or queen) on
+  // square `from`. Can also compute the legal moves for knight and king by
+  // breaking after the first step.
+  void InsertToSquaresSliding(Square from, std::vector<Square> &tos,
+                              const std::vector<int8_t> &pattern,
                               bool knight_or_king = false) const {
     const auto from_rank = static_cast<int8_t>(from / 8);
     const auto from_file = static_cast<int8_t>(from % 8);
 
-    for (auto step_size : step_sizes) {
+    for (auto step_size : pattern) {
       for (int8_t i = 1;; ++i) {
         const auto to = static_cast<Square>(from + (step_size * i));
 
@@ -269,18 +269,17 @@ class Chess final : public Game<ChessMove> {
         const auto to_rank = static_cast<int8_t>(to / 8);
         const auto to_file = static_cast<int8_t>(to % 8);
 
-        // Ensure the move does not wrap around the board
         if (abs(step_size) == 1 && to_rank != from_rank) {
-          // For horizontal moves, check if the file changes
+          // Prevents horizontal moves from changing the rank.
           break;
         }
         if (abs(step_size) == 8 && to_file != from_file) {
-          // For vertical moves, check if the rank changes
+          // Prevents vertical moves from changing the file.
           break;
         }
         if ((abs(step_size) == 7 || abs(step_size) == 9) &&
             (abs(to_rank - from_rank) != i || abs(to_file - from_file) != i)) {
-          // For diagonal moves, check if rank and file change equally
+          // For diagonal moves, checks if rank and file change equally.
           break;
         }
 
@@ -343,23 +342,23 @@ class Chess final : public Game<ChessMove> {
         break;
       case kWhiteKing:
       case kBlackKing:
-        InsertToSquaresPattern(from, tos, {-9, -8, -7, -1, 1, 7, 8, 9}, true);
+        InsertToSquaresSliding(from, tos, {-9, -8, -7, -1, 1, 7, 8, 9}, true);
         break;
       case kWhiteQueen:
       case kBlackQueen:
-        InsertToSquaresPattern(from, tos, {-9, -8, -7, -1, 1, 7, 8, 9});
+        InsertToSquaresSliding(from, tos, {-9, -8, -7, -1, 1, 7, 8, 9});
         break;
       case kWhiteRook:
       case kBlackRook:
-        InsertToSquaresPattern(from, tos, {-8, -1, 1, 8});
+        InsertToSquaresSliding(from, tos, {-8, -1, 1, 8});
         break;
       case kWhiteBishop:
       case kBlackBishop:
-        InsertToSquaresPattern(from, tos, {-9, -7, 7, 9});
+        InsertToSquaresSliding(from, tos, {-9, -7, 7, 9});
         break;
       case kWhiteKnight:
       case kBlackKnight:
-        InsertToSquaresPattern(from, tos, {-17, -15, -10, -6, 6, 10, 15, 17},
+        InsertToSquaresSliding(from, tos, {-17, -15, -10, -6, 6, 10, 15, 17},
                                true);
         break;
       case kWhitePawn:
