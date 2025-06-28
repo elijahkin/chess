@@ -1,21 +1,24 @@
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <cstddef>
+#include <functional>
 #include <iostream>
 #include <limits>
 #include <vector>
 
 #include "../tourney_base.hpp"
 
+using Score = float;
+
 // Performs the minimax algorithm with alpha-beta pruning and depth limited by
 // `max_plies_`.
 template <typename Move>
 class MinimaxAgent final : public Agent<Move> {
  public:
-  using Score = float;
-
-  explicit MinimaxAgent(int max_plies) : max_plies_(max_plies) {}
+  MinimaxAgent(int max_plies,
+               std::function<Score(const Move &)> heuristic_value_adjustment)
+      : max_plies_(max_plies),
+        heuristic_value_adjustment_(heuristic_value_adjustment) {}
 
   Move SelectMove(Game<Move> &state) override {
     std::cout << "Minimax agent is thinking...\n";
@@ -48,24 +51,17 @@ class MinimaxAgent final : public Agent<Move> {
   static constexpr Score kInf = std::numeric_limits<Score>::infinity();
   static constexpr Score kNegInf = -std::numeric_limits<Score>::infinity();
 
-  static Score HeuristicValueAdjustment(const Move &move) {
-    constexpr std::array<Score, 13> kBlackAdvantageOnCapture = {
-        0, 200, 9, 5, 3, 3, 1, -200, -9, -5, -3, -3, -1};
-
-    return kBlackAdvantageOnCapture[move.captured];
-  }
-
   // https://en.wikipedia.org/wiki/Alpha%E2%80%93beta_pruning#Pseudocode
   Score AlphaBeta(Game<Move> &state, const Move &move, int ply, Score alpha,
                   Score beta) {
     state.MakeMove(move);
-    heuristic_value_ += HeuristicValueAdjustment(move);
+    heuristic_value_ += heuristic_value_adjustment_(move);
 
     if (ply == max_plies_) {
       const Score leaf_value = heuristic_value_;
       leaf_nodes_count_++;
       state.UnmakeMove(move);
-      heuristic_value_ -= HeuristicValueAdjustment(move);
+      heuristic_value_ -= heuristic_value_adjustment_(move);
       return leaf_value;
     }
 
@@ -90,13 +86,15 @@ class MinimaxAgent final : public Agent<Move> {
       }
     }
     state.UnmakeMove(move);
-    heuristic_value_ -= HeuristicValueAdjustment(move);
+    heuristic_value_ -= heuristic_value_adjustment_(move);
     return value;
   }
 
   int max_plies_;
 
   Score heuristic_value_ = 0;
+
+  std::function<Score(const Move &)> heuristic_value_adjustment_;
 
   size_t leaf_nodes_count_ = 0;
 };
