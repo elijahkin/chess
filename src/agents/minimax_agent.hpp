@@ -19,7 +19,7 @@ class MinimaxAgent final : public Agent<Move> {
 
   Move SelectMove(Game<Move> &state) override {
     std::cout << "Minimax agent is thinking...\n";
-    evaluations_ = 0;
+    leaf_nodes_count_ = 0;
     const auto begin = std::chrono::steady_clock::now();
 
     Score best_value = kNegInf;
@@ -39,8 +39,8 @@ class MinimaxAgent final : public Agent<Move> {
     const auto elapsed_ms =
         std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
             .count();
-    std::cout << "Selected move with value " << best_value << " after "
-              << evaluations_ << " evaluations in " << elapsed_ms << "ms\n";
+    std::cout << "Selected move with value " << best_value << " after visiting "
+              << leaf_nodes_count_ << " leaf nodes in " << elapsed_ms << "ms\n";
     return best_moves[0];
   }
 
@@ -48,21 +48,25 @@ class MinimaxAgent final : public Agent<Move> {
   static constexpr Score kInf = std::numeric_limits<Score>::infinity();
   static constexpr Score kNegInf = -std::numeric_limits<Score>::infinity();
 
-  static constexpr std::array<Score, 13> kBlackAdvantageOnCapture = {
-      0, 200, 9, 5, 3, 3, 1, -200, -9, -5, -3, -3, -1};
+  static Score HeuristicValueAdjustment(const Move &move) {
+    constexpr std::array<Score, 13> kBlackAdvantageOnCapture = {
+        0, 200, 9, 5, 3, 3, 1, -200, -9, -5, -3, -3, -1};
+
+    return kBlackAdvantageOnCapture[move.captured];
+  }
 
   // https://en.wikipedia.org/wiki/Alpha%E2%80%93beta_pruning#Pseudocode
   Score AlphaBeta(Game<Move> &state, const Move &move, int ply, Score alpha,
                   Score beta) {
     state.MakeMove(move);
-    heuristic_value_ += kBlackAdvantageOnCapture[move.captured];
+    heuristic_value_ += HeuristicValueAdjustment(move);
 
     if (ply == max_plies_) {
-      const Score value = heuristic_value_;
-      evaluations_++;
+      const Score leaf_value = heuristic_value_;
+      leaf_nodes_count_++;
       state.UnmakeMove(move);
-      heuristic_value_ -= kBlackAdvantageOnCapture[move.captured];
-      return value;
+      heuristic_value_ -= HeuristicValueAdjustment(move);
+      return leaf_value;
     }
 
     Score value;
@@ -86,7 +90,7 @@ class MinimaxAgent final : public Agent<Move> {
       }
     }
     state.UnmakeMove(move);
-    heuristic_value_ -= kBlackAdvantageOnCapture[move.captured];
+    heuristic_value_ -= HeuristicValueAdjustment(move);
     return value;
   }
 
@@ -94,5 +98,5 @@ class MinimaxAgent final : public Agent<Move> {
 
   Score heuristic_value_ = 0;
 
-  size_t evaluations_ = 0;
+  size_t leaf_nodes_count_ = 0;
 };
