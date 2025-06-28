@@ -112,7 +112,7 @@ class Chess final : public Game<ChessMove> {
 
   // Parses user-input algebraic notation.
   [[nodiscard]] std::optional<ChessMove> Parse(
-      const std::string &move) const override;
+      const std::string &input) const override;
 
  private:
   // https://en.wikipedia.org/wiki/Chess_symbols_in_Unicode
@@ -219,18 +219,18 @@ std::string Chess::ToString() const {
   return output;
 }
 
-std::optional<ChessMove> Chess::Parse(const std::string &move) const {
-  const std::regex pattern("([KQRBN]?)x?([a-h])([1-8])");
+std::optional<ChessMove> Chess::Parse(const std::string &input) const {
+  const std::regex san_pattern("([KQRBN]?)x?([a-h])([1-8])");
 
   // Ensures syntactic correctness of input.
-  std::smatch matches;
-  if (!std::regex_match(move, matches, pattern)) {
+  std::smatch san;
+  if (!std::regex_match(input, san, san_pattern)) {
     return std::nullopt;
   }
 
   // Computes the piece type and destination from the captured groups.
   Piece type = kEmpty;
-  switch (matches[1].str()[0]) {
+  switch (san[1].str()[0]) {
     case 'K':
       type = white_to_move_ ? kWhiteKing : kBlackKing;
       break;
@@ -250,7 +250,7 @@ std::optional<ChessMove> Chess::Parse(const std::string &move) const {
       type = white_to_move_ ? kWhitePawn : kBlackPawn;
       break;
   }
-  const Square to = LogicalToPhysical(matches[2].str()[0], matches[3].str()[0]);
+  const Square to = LogicalToPhysical(san[2].str()[0], san[3].str()[0]);
 
   // Seaches for pieces of that type that can moved to the destination.
   std::vector<Square> from_candidates;

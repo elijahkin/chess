@@ -19,7 +19,7 @@ class Game {
   [[nodiscard]] virtual std::string ToString() const = 0;
 
   [[nodiscard]] virtual std::optional<Move> Parse(
-      const std::string &move) const = 0;
+      const std::string &input) const = 0;
 };
 
 // Defines the necessary functions to implement an agent.
