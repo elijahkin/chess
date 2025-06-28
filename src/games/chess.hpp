@@ -73,29 +73,27 @@ class Chess final : public Game<ChessMove> {
     }
   }
 
-  // Computes the sum of white's material minus the sum of black's material.
   [[nodiscard]] Score HeuristicValue() const override {
-    Score material_advantage = 0;
-    for (auto piece : board_) {
-      material_advantage -= kMaterialValues[piece];
-    }
-    return material_advantage;
+    return material_advantage_;
   }
 
-  // Performs the move in memory and switches with the other player.
+  // Performs the move in memory, updates the material advantage, and changes to
+  // the other player's turn.
   void MakeMove(const ChessMove &move) override {
     board_[move.to] = board_[move.from];
     board_[move.from] = kEmpty;
+    material_advantage_ += kMaterialValues[move.captured];
     white_to_move_ = !white_to_move_;
   }
 
   void UnmakeMove(const ChessMove &move) override {
     board_[move.from] = board_[move.to];
     board_[move.to] = move.captured;
+    material_advantage_ -= kMaterialValues[move.captured];
     white_to_move_ = !white_to_move_;
   }
 
-  // Logs the move to `history_` and makes it.
+  // Logs the move to `history_` for printing before making it.
   void RecordMove(const ChessMove &move) {
     if (white_to_move_) {
       history_.push_back(GetAlgebraicNotation(move));
@@ -387,6 +385,9 @@ class Chess final : public Game<ChessMove> {
 
   // Records the move history in algebraic notation.
   std::vector<std::string> history_;
+
+  // Stores the sum of white's material minus the sum of black's material.
+  Score material_advantage_ = 0;
 
   // Keeps track of whose turn it is.
   bool white_to_move_ = true;
