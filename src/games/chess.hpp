@@ -43,7 +43,7 @@ struct ChessMove {
   Piece captured;
 };
 
-class Chess final : public Game<ChessMove> {
+class Chess final : public Game<ChessMove> {  // NOLINT
  public:
   explicit Chess(bool white_perspective)
       : white_perspective_(white_perspective) {
@@ -120,9 +120,6 @@ class Chess final : public Game<ChessMove> {
       " ",      "\u2654", "\u2655", "\u2656", "\u2657", "\u2658", "\u2659",
       "\u265a", "\u265b", "\u265c", "\u265d", "\u265e", "\u265f"};
 
-  static constexpr std::array<char, 6> kPieceLetters = {'K', 'Q', 'R',
-                                                        'B', 'N', '\0'};
-
   // Converts the rank and file on the chess board to the index of the
   // corresponding square in `board_`.
   static Square LogicalToPhysical(char file, char rank) {
@@ -143,6 +140,8 @@ class Chess final : public Game<ChessMove> {
 
   // https://en.wikipedia.org/wiki/Algebraic_notation_(chess)
   [[nodiscard]] std::string GetAlgebraicNotation(const ChessMove &move) const {
+    static constexpr std::array<char, 6> kPieceLetters = {'K', 'Q', 'R',
+                                                          'B', 'N', '\0'};
     std::string output;
     output += kPieceLetters[(board_[move.from] - 1) % 6];
     if (move.captured != kEmpty) {

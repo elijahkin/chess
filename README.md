@@ -18,7 +18,7 @@ We divide work broadly into that which pertains specifically to `chess.hpp` and 
 * Consider avenues of improvement for `MinimaxAgent`: iterative deepening, transposition tables, random optimal move selection
 * Implement `RandomAgent`, which selects uniformly from the set of possible moves.
 * Design a tournament and ELO system to have many agents compete against each other.
-* Implement other games: tic-tac-toe, dots and boxes, 2048, blackjack, and poker.
+* Implement other games: dots and boxes, 2048, blackjack, and poker.
 * Consider whether declaring a `namespace tourney` would be appropriate
 * Address any reported clang-tidy issues. Judicious use of `// NOLINT` is permissible.
 * Continuously rewrite code to make it as self-documenting as possible. Resort to comments sparingly. Ensure that "the function" is the implicit subject of all comments and that proper punctuation is used.
