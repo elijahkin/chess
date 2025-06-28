@@ -6,7 +6,7 @@
 #include <limits>
 #include <vector>
 
-#include "../base.hpp"
+#include "../tourney_base.hpp"
 
 // Performs the minimax algorithm with alpha-beta pruning and depth limited by
 // `max_plies_`.

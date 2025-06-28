@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <cstdint>
 #include <cstdlib>
 #include <optional>
@@ -8,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "../base.hpp"
+#include "../tourney_base.hpp"
 
 // Assign human-readable names to ANSI escape codes.
 constexpr std::string kCursorHome = "\x1B[H";

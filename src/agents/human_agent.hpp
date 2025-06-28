@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 
-#include "../base.hpp"
+#include "../tourney_base.hpp"
 
 // Prompts the user for command line input, which is parsed via `state.Parse`.
 // If the parse fails, alerts the user and prompts for input again.

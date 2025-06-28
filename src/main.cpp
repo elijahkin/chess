@@ -4,8 +4,8 @@
 
 #include "agents/human_agent.hpp"
 #include "agents/minimax_agent.hpp"
-#include "base.hpp"
 #include "games/chess.hpp"
+#include "tourney_base.hpp"
 
 int main() {
   // Create the game and the agents playing it.
