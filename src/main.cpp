@@ -27,7 +27,7 @@ int main() {
   while (true) {
     for (const auto& agent_ptr : agents) {
       std::cout << game.ToString() << "\n";
-      if (game.GetMoves().empty()) {
+      if (game.GenerateLegalMoves().empty()) {
         return 0;
       }
       const auto move = agent_ptr->SelectMove(game);

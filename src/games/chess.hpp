@@ -96,7 +96,7 @@ class Chess final : public Game<ChessMove> {  // NOLINT
     }
   }
 
-  [[nodiscard]] std::vector<ChessMove> GetMoves() const override {
+  [[nodiscard]] std::vector<ChessMove> GenerateLegalMoves() const override {
     std::vector<ChessMove> moves;
     for (Square from = 0; from < 64; ++from) {
       if (IsWhite(board_[from]) == white_to_move_) {
@@ -127,7 +127,7 @@ class Chess final : public Game<ChessMove> {  // NOLINT
   }
 
   static bool IsWhite(const Piece piece) {
-    return (piece >= kWhiteKing && piece <= kWhitePawn);
+    return (piece >= kWhiteKing) && (piece <= kWhitePawn);
   }
 
   [[nodiscard]] bool IsOccupied(Square square) const {

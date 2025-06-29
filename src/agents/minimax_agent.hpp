@@ -27,7 +27,7 @@ class MinimaxAgent final : public Agent<Move> {
 
     Score best_value = kNegInf;
     std::vector<Move> best_moves;
-    for (const auto &move : state.GetMoves()) {
+    for (const auto &move : state.GenerateLegalMoves()) {
       const Score value = AlphaBeta(state, move, 1, kNegInf, kInf);
       if (value > best_value) {
         best_moves.clear();
@@ -68,7 +68,7 @@ class MinimaxAgent final : public Agent<Move> {
     Score value;
     if (ply % 2 == 0) {  // Maximizing player
       value = kNegInf;
-      for (const auto &child : state.GetMoves()) {
+      for (const auto &child : state.GenerateLegalMoves()) {
         value = std::max(value, AlphaBeta(state, child, ply + 1, alpha, beta));
         if (value >= beta) {
           break;
@@ -77,7 +77,7 @@ class MinimaxAgent final : public Agent<Move> {
       }
     } else {  // Minimizing player
       value = kInf;
-      for (const auto &child : state.GetMoves()) {
+      for (const auto &child : state.GenerateLegalMoves()) {
         value = std::min(value, AlphaBeta(state, child, ply + 1, alpha, beta));
         if (value <= alpha) {
           break;

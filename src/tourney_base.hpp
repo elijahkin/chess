@@ -14,7 +14,7 @@ class Game {
 
   virtual void UnmakeMove(const Move &move) = 0;
 
-  [[nodiscard]] virtual std::vector<Move> GetMoves() const = 0;
+  [[nodiscard]] virtual std::vector<Move> GenerateLegalMoves() const = 0;
 
   [[nodiscard]] virtual std::string ToString() const = 0;
 
