@@ -6,7 +6,7 @@
 
 // Defines the necessary functions to implement a game.
 template <typename Move>
-class Game {
+class Game {  // NOLINT
  public:
   virtual ~Game() = default;
 
@@ -24,9 +24,14 @@ class Game {
 
 // Defines the necessary functions to implement an agent.
 template <typename Move>
-class Agent {
+class Agent {  // NOLINT
  public:
+  explicit Agent(Game<Move> &state) : state_(state) {}
+
   virtual ~Agent() = default;
 
   [[nodiscard]] virtual Move SelectMove() = 0;
+
+ protected:
+  Game<Move> &state_;  // NOLINT
 };
