@@ -147,7 +147,7 @@ class Chess final : public Game<ChessMove> {  // NOLINT
     if (move.captured != kEmpty) {
       output += 'x';
     }
-    output += (move.to % 8) + 'a';
+    output += static_cast<char>('a' + (move.to % 8));
     output += std::to_string(1 + (move.to / 8));
     return output;
   }
@@ -277,30 +277,26 @@ void Chess::InsertToSquaresSliding(Square from, std::vector<Square> &tos,
   const auto from_file = static_cast<int8_t>(from % 8);
 
   for (auto step_size : pattern) {
-    for (int8_t i = 1;; ++i) {
-      const auto to = static_cast<Square>(from + (step_size * i));
-
-      // Ensures the move is within the board boundaries. Since `Square` is an
-      // alias for `uint8_t`, checking for negativity is not necessary.
-      if (to >= 64) {
-        break;
-      }
-
+    for (auto to = static_cast<Square>(from + step_size); to < 64;
+         to += step_size) {
       const auto to_rank = static_cast<int8_t>(to / 8);
       const auto to_file = static_cast<int8_t>(to % 8);
 
-      if (abs(step_size) == 1 && to_rank != from_rank) {
-        // Prevents horizontal moves from changing the rank.
-        break;
-      }
-      if (abs(step_size) == 8 && to_file != from_file) {
-        // Prevents vertical moves from changing the file.
-        break;
-      }
-      if ((abs(step_size) == 7 || abs(step_size) == 9) &&
-          (abs(to_rank - from_rank) != i || abs(to_file - from_file) != i)) {
-        // For diagonal moves, checks if rank and file change equally.
-        break;
+      if (abs(step_size) == 1) {
+        // Ensures horizontal moves do not change rank.
+        if (to_rank != from_rank) {
+          break;
+        }
+      } else if (abs(step_size) == 8) {
+        // Ensures vertical moves do not change file.
+        if (to_file != from_file) {
+          break;
+        }
+      } else if (abs(step_size) == 7 || abs(step_size) == 9) {
+        // Ensures diagonal moves change rank and file equally.
+        if (abs(to_rank - from_rank) != abs(to_file - from_file)) {
+          break;
+        }
       }
 
       // We can move to a square if it is empty or has an opponent
