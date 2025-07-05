@@ -28,5 +28,5 @@ class Agent {
  public:
   virtual ~Agent() = default;
 
-  [[nodiscard]] virtual Move SelectMove(Game<Move> &state) = 0;
+  [[nodiscard]] virtual Move SelectMove() = 0;
 };

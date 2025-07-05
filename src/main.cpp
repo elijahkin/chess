@@ -19,9 +19,9 @@ int main() {
   auto game = Chess(/*white_perspective=*/true);
 
   std::vector<std::unique_ptr<Agent<ChessMove>>> agents;
-  agents.push_back(std::make_unique<HumanAgent<ChessMove>>());
-  agents.push_back(
-      std::make_unique<MinimaxAgent<ChessMove>>(5, kBlackAdvantageOnCapture));
+  agents.push_back(std::make_unique<HumanAgent<ChessMove>>(game));
+  agents.push_back(std::make_unique<MinimaxAgent<ChessMove>>(
+      game, 5, kBlackAdvantageOnCapture));
 
   // Take turns making moves until someone can't.
   while (true) {
@@ -30,7 +30,7 @@ int main() {
       if (game.GenerateLegalMoves().empty()) {
         return 0;
       }
-      const auto move = agent_ptr->SelectMove(game);
+      const auto move = agent_ptr->SelectMove();
       game.RecordMove(move);
       game.MakeMove(move);
     }

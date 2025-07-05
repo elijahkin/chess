@@ -8,14 +8,14 @@
 template <typename Move>
 class HumanAgent final : public Agent<Move> {
  public:
-  HumanAgent() = default;
+  explicit HumanAgent(Game<Move>& state) : state_(state) {}
 
-  Move SelectMove(Game<Move> &state) override {
+  Move SelectMove() override {
     std::string input;
     while (true) {
       std::cout << "Please enter a move: ";
       std::cin >> input;
-      auto parsed = state.Parse(input);
+      auto parsed = state_.Parse(input);
       if (parsed.has_value()) {
         return parsed.value();
         break;
@@ -23,4 +23,7 @@ class HumanAgent final : public Agent<Move> {
       std::cout << "Invalid entry! ";
     }
   }
+
+ private:
+  Game<Move>& state_;
 };
